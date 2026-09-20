@@ -1,0 +1,61 @@
+name: htop
+slug: htop
+category: System Monitors
+tags:
+  - process-monitor
+  - ncurses
+  - interactive
+  - classic
+description:
+  short: The classic interactive process viewer with color-coded meters and a readable process tree.
+  full: |
+    ## What is it?
+
+    htop is an interactive process viewer for Unix systems. It shows CPU,
+    memory, and swap meters at the top, and a scrollable list of processes
+    below, color-coded by CPU and memory use. Unlike the traditional `top`,
+    htop lets you scroll with the arrow keys, kill or renice processes with
+    function keys, and browse the process tree.
+
+    ## Why use it?
+
+    htop is the first tool most people install on a new machine, and for
+    good reason: it answers "what is using my CPU right now?" instantly and
+    legibly. The tree view makes parent-child process relationships clear,
+    which is invaluable when a misbehaving script spawns hundreds of
+    children. It is light enough to run on servers and works over any
+    terminal.
+
+    ## Key features
+
+    - Per-core CPU meters with color-coded bars
+    - Memory and swap usage at a glance
+    - Scrollable process list with search and filtering
+    - Tree view of process ancestry
+    - Kill, renice, and follow processes from the UI
+    - Fully keyboard-driven with function-key shortcuts
+
+    ## How it compares
+
+    Against btop, htop is plainer but lighter and more universal — it is
+    packaged everywhere and runs on minimal systems. Against top it is far
+    more readable and interactive. Against bottom it is less graph-heavy
+    and simpler. htop remains the dependable default for a quick look at
+    system state.
+license: GPL-2.0-only
+version: "3.4.1"
+first_release: "2004-05-01"
+latest_release: "2026-01-10"
+homepage: https://htop.dev
+repository: https://github.com/htop-dev/htop
+icon: "📈"
+packages:
+  apt: htop
+  dnf: htop
+  pacman: htop
+  zypper: htop
+related:
+  - btop
+  - bottom
+  - glances
+  - fastfetch

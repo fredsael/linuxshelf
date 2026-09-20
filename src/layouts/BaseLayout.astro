@@ -1,0 +1,76 @@
+---
+import Header from "../components/Header.astro";
+import "../styles/global.css";
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = "Linux Programs Explorer",
+  description = "Browse and compare curated Linux programs by category — descriptions, licenses, versions, and install commands for every major distribution.",
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <title>{title}</title>
+  </head>
+  <body>
+    <Header />
+    <main>
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <div class="container">
+        <p>
+          Linux Programs Explorer — a curated, version-controlled guide to
+          open-source software. Built with
+          <a href="https://astro.build">Astro</a> and
+          <a href="https://pagefind.app">Pagefind</a>.
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style>
+  main {
+    min-height: calc(100vh - 12rem);
+  }
+
+  .site-footer {
+    border-top: 1px solid var(--border);
+    margin-top: 4rem;
+    padding: 1.5rem 0 2rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+
+  .site-footer p {
+    margin: 0;
+  }
+
+  .site-footer a {
+    color: var(--text);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .site-footer a:hover {
+    color: var(--accent);
+  }
+</style>

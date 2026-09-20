@@ -1,0 +1,61 @@
+name: Vim
+slug: vim
+category: Text Editors
+tags:
+  - modal editing
+  - keyboard-driven
+  - vimscript
+  - ubiquitous
+description:
+  short: The classic modal text editor, installed on virtually every Unix-like system and endlessly extensible.
+  full: |
+    ## What is it?
+
+    Vim ("Vi IMproved") is a modal text editor that grew out of the original
+    vi from 1976. It keeps separate modes for navigating, editing, and
+    selecting text, which sounds awkward until it becomes muscle memory.
+    Vim runs in a terminal, in a GUI, and inside almost every other tool you
+    can name, from Git commit messages to shell command history.
+
+    ## Why use it?
+
+    Vim is the safest bet in text editing: it exists on servers, containers,
+    and embedded systems, so the skills transfer everywhere. Once you learn
+    the handful of motions and operators that form its grammar, editing
+    becomes a language rather than a sequence of mouse movements. The plugin
+    ecosystem, built over three decades, covers nearly every language and
+    workflow.
+
+    ## Key features
+
+    - Modal editing with a composable motion/operator grammar
+    - Split windows, tabs, buffers, and a powerful quickfix list
+    - Macros and registers for repeatable edits
+    - Vimscript plus support for Python, Ruby, Lua, and other interfaces
+    - Available everywhere, including over SSH with no GUI
+    - A built-in tutorial (`vimtutor`) for the first 30 minutes
+
+    ## How it compares
+
+    Neovim is Vim's modern fork with async plugins, a built-in LSP client,
+    and Lua configuration; choose it if you want an IDE-like experience.
+    Helix offers modal editing with sensible defaults and no configuration
+    required. Nano is easier for one-off edits, but Vim rewards investment
+    with speed and longevity.
+license: Vim
+version: "9.1"
+first_release: "1991-11-02"
+latest_release: "2026-02-01"
+homepage: https://www.vim.org
+repository: https://github.com/vim/vim
+icon: "💚"
+packages:
+  apt: vim
+  dnf: vim-enhanced
+  pacman: vim
+  zypper: vim
+related:
+  - neovim
+  - emacs
+  - nano
+  - helix

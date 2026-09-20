@@ -1,0 +1,62 @@
+name: Kitty
+slug: kitty
+category: Terminal Emulators
+tags:
+  - gpu-accelerated
+  - tabs
+  - splits
+  - ligatures
+  - graphics
+description:
+  short: A fast, feature-rich GPU terminal with tabs, splits, ligatures, and an extensible kitten toolkit.
+  full: |
+    ## What is it?
+
+    Kitty is a GPU-accelerated terminal emulator that combines speed with
+    features usually left to a window manager or multiplexer: tabs, splits,
+    scrollback search, and even an image protocol. It is also scriptable —
+    "kittens" are small programs that extend the terminal itself, handling
+    everything from diff viewers to ssh sessions.
+
+    ## Why use it?
+
+    Kitty is the pragmatic choice when you want one terminal to do it all.
+    It renders frames off the main thread, so the UI stays responsive under
+    load, and its configuration file is simple enough to read in one
+    sitting. Ligature support keeps fonts such as Fira Code looking right,
+    and the graphics protocol lets tools display real images inside the
+    terminal.
+
+    ## Key features
+
+    - GPU rendering with a separate render thread for low latency
+    - Tabs, splits, and layouts built in
+    - Ligature and variable-font support
+    - Kitty graphics protocol for inline images
+    - Scriptable kittens and remote control via `kitten`
+    - Scrollback buffer with searchable history
+
+    ## How it compares
+
+    Against Alacritty, Kitty includes tabs and splits but is a larger,
+    more opinionated program. Against WezTerm it is less configurable but
+    easier to pick up. Against GNOME Terminal it is faster and more
+    flexible, at the cost of tighter desktop integration. If you want a
+    terminal that needs no multiplexer, Kitty is an excellent default.
+license: GPL-3.0-only
+version: "0.43.1"
+first_release: "2017-10-27"
+latest_release: "2026-04-01"
+homepage: https://sw.kovidgoyal.net/kitty/
+repository: https://github.com/kovidgoyal/kitty
+icon: "🐱"
+packages:
+  apt: kitty
+  dnf: kitty
+  pacman: kitty
+  zypper: kitty
+related:
+  - alacritty
+  - wezterm
+  - foot
+  - konsole

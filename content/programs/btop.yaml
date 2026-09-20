@@ -1,0 +1,61 @@
+name: btop
+slug: btop
+category: System Monitors
+tags:
+  - resource-monitor
+  - tui
+  - graphs
+  - themes
+description:
+  short: A polished resource monitor with live graphs for CPU, memory, disks, and network, plus mouse support.
+  full: |
+    ## What is it?
+
+    btop (formerly bashtop and bpytop) is a resource monitor with a modern
+    terminal interface: braille-character graphs, configurable themes,
+    rounded panels, and mouse support. It covers CPU, memory, disks,
+    network, and processes in one screen, and lets you rearrange and resize
+    the panels to taste.
+
+    ## Why use it?
+
+    btop is the monitor you leave open on a second screen. Its graphs make
+    trends visible — a slow memory leak or a periodically busy disk shows up
+    immediately — and the process view is detailed enough to act on.
+    Despite the visual polish it stays efficient, and it works in any
+    terminal with 256 colors.
+
+    ## Key features
+
+    - Live braille graphs for CPU, memory, network, and disk
+    - Per-process CPU, memory, and I/O details
+    - Mouse support and clickable panels
+    - Themeable and configurable layout
+    - Process search, filtering, and signal menu
+    - Optional GPU monitoring
+
+    ## How it compares
+
+    Against htop, btop is prettier and more informative at a glance, at the
+    cost of a little more CPU and a larger install. Against bottom it has a
+    friendlier mouse-driven interface, while bottom appeals more to
+    keyboard-only tiling users. Against glances it is a focused monitor
+    rather than a client/server fleet tool. A great daily driver for
+    desktop and server alike.
+license: Apache-2.0
+version: "1.4.5"
+first_release: "2021-05-01"
+latest_release: "2026-03-05"
+homepage: https://github.com/aristocratos/btop
+repository: https://github.com/aristocratos/btop
+icon: "📊"
+packages:
+  apt: btop
+  dnf: btop
+  pacman: btop
+  zypper: btop
+related:
+  - htop
+  - bottom
+  - glances
+  - fastfetch

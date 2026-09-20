@@ -1,0 +1,82 @@
+---
+import SearchBar from "./SearchBar.astro";
+---
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a class="brand" href="/">
+      <span class="brand-prompt" aria-hidden="true">$</span>
+      <span class="brand-name">linux-programs</span>
+    </a>
+    <nav class="site-nav" aria-label="Main">
+      <a href="/">Home</a>
+      <a href="/#categories">Categories</a>
+    </nav>
+    <SearchBar />
+  </div>
+</header>
+
+<style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+  }
+
+  .header-inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.25rem;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+
+  .brand:hover {
+    color: var(--text);
+  }
+
+  .brand-prompt {
+    color: var(--accent);
+  }
+
+  .brand-name {
+    border-bottom: 2px solid transparent;
+  }
+
+  .brand:hover .brand-name {
+    border-bottom-color: var(--accent);
+  }
+
+  .site-nav {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+  }
+
+  .site-nav a:hover {
+    color: var(--accent);
+  }
+
+  @media (max-width: 640px) {
+    .site-nav {
+      margin-left: auto;
+    }
+  }
+</style>

@@ -1,0 +1,60 @@
+name: Midnight Commander
+slug: midnight-commander
+category: File Managers
+tags:
+  - terminal
+  - dual-pane
+  - classic
+  - built-in-editor
+description:
+  short: The classic dual-pane terminal file manager, with a built-in editor, viewer, and archive browsing.
+  full: |
+    ## What is it?
+
+    Midnight Commander (mc) is a dual-pane terminal file manager that has
+    been part of the Unix toolkit since 1994. It looks and behaves like
+    Norton Commander: function-key shortcuts, a persistent command line,
+    and a menu bar. It also embeds a text editor and a file viewer, and can
+    browse inside archives as if they were directories.
+
+    ## Why use it?
+
+    mc is familiar, stable, and complete. Anyone who used DOS-era file
+    managers can be productive immediately, and the built-in editor means
+    you can open a config file without installing anything else. Its
+    virtual filesystem makes inspecting tarballs and remote directories
+    (FTP, SFTP, SMB) simple, and it works over any terminal.
+
+    ## Key features
+
+    - Dual-pane layout with function-key shortcuts
+    - Built-in mcedit editor and file viewer
+    - Browse tar, zip, and other archives as directories
+    - Virtual filesystems for SFTP, FTP, and SMB
+    - Subshell integration and a persistent command line
+    - Mouse support and customizable color themes
+
+    ## How it compares
+
+    Against Ranger, Yazi, and lf, Midnight Commander is slower and less
+    fashionable but more complete out of the box: no plugins are needed for
+    everyday work. Against GUI managers such as Dolphin it is text-only but
+    runs anywhere. A dependable choice for servers and for anyone who wants
+    a two-pane workflow.
+license: GPL-3.0-or-later
+version: "4.8.33"
+first_release: "1994-05-01"
+latest_release: "2026-04-20"
+homepage: https://midnight-commander.org
+repository: https://github.com/MidnightCommander/mc
+icon: "🧰"
+packages:
+  apt: mc
+  dnf: mc
+  pacman: mc
+  zypper: mc
+related:
+  - ranger
+  - nnn
+  - lf
+  - yazi

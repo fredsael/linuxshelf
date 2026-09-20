@@ -1,0 +1,58 @@
+name: GNU nano
+slug: nano
+category: Text Editors
+tags:
+  - terminal
+  - beginner-friendly
+  - minimal
+  - default
+description:
+  short: A tiny, modeless terminal editor with on-screen shortcuts, preinstalled on most distributions.
+  full: |
+    ## What is it?
+
+    GNU nano is a small, modeless text editor that shows its own keybindings
+    at the bottom of the screen. There are no modes, no configuration
+    language, and almost nothing to read before you can edit a config file.
+    It is the default editor for many minimal distributions and installers,
+    which is why so many "how to edit a file" guides start with `nano`.
+
+    ## Why use it?
+
+    Nano is the editor you reach for when correctness matters more than
+    speed. It is already installed, it starts instantly, and its shortcuts
+    are visible, so you never feel lost. For quick edits over SSH, editing
+    `/etc/fstab` on a rescue system, or writing a note, it removes every
+    obstacle between you and the text.
+
+    ## Key features
+
+    - Modeless editing with an always-visible shortcut bar
+    - Search and replace with regular expression support
+    - Syntax highlighting for common file types
+    - Multiple buffers, plus mouse support in recent versions
+    - Soft line wrapping and automatic indentation
+    - A tiny dependency footprint and wide availability
+
+    ## How it compares
+
+    Micro modernizes the same model with plugins, tabs, and multiple
+    cursors, but is not preinstalled everywhere. Vim and Neovim are vastly
+    more powerful once learned, but expect you to invest the time. Nano wins
+    on immediacy: if you only edit text occasionally, it is enough.
+license: GPL-3.0-or-later
+version: "8.6"
+first_release: "2000-01-11"
+latest_release: "2026-05-01"
+homepage: https://www.nano-editor.org
+repository: https://git.savannah.gnu.org/cgit/nano.git
+icon: "🪶"
+packages:
+  apt: nano
+  dnf: nano
+  pacman: nano
+  zypper: nano
+related:
+  - micro
+  - vim
+  - emacs

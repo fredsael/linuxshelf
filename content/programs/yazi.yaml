@@ -1,0 +1,60 @@
+name: Yazi
+slug: yazi
+category: File Managers
+tags:
+  - terminal
+  - rust
+  - async
+  - previews
+  - plugin-system
+description:
+  short: A blazing-fast terminal file manager in Rust with async I/O, image previews, and a plugin system.
+  full: |
+    ## What is it?
+
+    Yazi ("duck") is a terminal file manager written in Rust with an
+    asynchronous core. It renders the file list immediately and streams in
+    previews, thumbnails, and metadata in the background, so even huge
+    directories stay responsive. Keybindings are Vim-like, and the
+    configuration is TOML with a Lua-based plugin and previewer system.
+
+    ## Why use it?
+
+    Yazi is the modern answer to Ranger's speed limits. GPU terminals such
+    as Kitty, WezTerm, and Foot can display real image previews, and the
+    async engine keeps scrolling smooth on network mounts and directories
+    with tens of thousands of files. It is also pleasant out of the box:
+    fuzzy search, batch rename, and archive extraction work with no setup.
+
+    ## Key features
+
+    - Asynchronous I/O: the UI never blocks on the filesystem
+    - Inline image previews via Kitty, WezTerm, iTerm2, and Sixel protocols
+    - Tabs, bulk rename, and drag-and-drop between panes
+    - Lua plugins and custom previewers
+    - Built-in archive extraction and mounting helpers
+    - Rich theme and keymap configuration
+
+    ## How it compares
+
+    Against Ranger, Yazi is significantly faster and more actively
+    developed, though its configuration surface is newer and still
+    changing. Against nnn it is heavier but far more visual and
+    beginner-friendly. If you want the terminal file manager that feels
+    most like a modern GUI file browser, Yazi is the current favourite.
+license: MIT
+version: "26.3.16"
+first_release: "2023-10-01"
+latest_release: "2026-03-16"
+homepage: https://yazi-rs.github.io
+repository: https://github.com/sxyazi/yazi
+icon: "🦆"
+packages:
+  apt: yazi
+  pacman: yazi
+  zypper: yazi
+related:
+  - ranger
+  - nnn
+  - lf
+  - midnight-commander

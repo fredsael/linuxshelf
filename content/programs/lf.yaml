@@ -1,0 +1,60 @@
+name: lf
+slug: lf
+category: File Managers
+tags:
+  - terminal
+  - go
+  - vim-keybindings
+  - configurable
+description:
+  short: A terminal file manager in Go with Vim-style keys, server/client model, and shell-script configuration.
+  full: |
+    ## What is it?
+
+    lf ("list files") is a terminal file manager written in Go, inspired by
+    Ranger but with a smaller core and a different architecture. A single
+    server process can back many client windows, and configuration is done
+    in a shell-like language with options, keybindings, and custom commands.
+    It ships as one static binary with no runtime dependencies.
+
+    ## Why use it?
+
+    lf is for people who like Ranger's model but want something leaner and
+    faster to start. The server/client design means opening a second file
+    manager is instant, and because commands are shell snippets, extending
+    it requires no knowledge of Python or Lua. It integrates cleanly with
+    tmux and other terminal tools.
+
+    ## Key features
+
+    - Server/client model with multiple windows
+    - Vim-inspired keybindings and marks
+    - Configuration and commands written in shell
+    - File previews for text, images, and archives
+    - Trash, bookmarks, and search
+    - Single static Go binary
+
+    ## How it compares
+
+    Against Ranger, lf is faster to start and lighter, though its plugin
+    ecosystem is smaller. Against nnn it is more Ranger-like in layout and
+    less focused on multi-context workflows. Against Yazi it lacks async
+    previews and a plugin language. Choose lf for a minimal, scriptable
+    Ranger alternative.
+license: MIT
+version: "r38"
+first_release: "2016-05-01"
+latest_release: "2026-02-10"
+homepage: https://github.com/gokcehan/lf
+repository: https://github.com/gokcehan/lf
+icon: "📁"
+packages:
+  apt: lf
+  dnf: lf
+  pacman: lf
+  zypper: lf
+related:
+  - nnn
+  - yazi
+  - ranger
+  - midnight-commander

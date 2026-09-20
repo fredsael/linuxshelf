@@ -1,0 +1,61 @@
+name: Neovim
+slug: neovim
+category: Text Editors
+tags:
+  - modal editing
+  - keyboard-driven
+  - lua
+  - extensible
+  - terminal
+description:
+  short: A hyperextensible, refactored Vim for the modern era, with built-in LSP support and Lua scripting.
+  full: |
+    ## What is it?
+
+    Neovim is a fork of Vim that keeps everything people love about modal
+    editing while reworking the internals for modern use. It ships with a
+    built-in language server protocol (LSP) client, treesitter-based syntax
+    highlighting, and a Lua API, so plugins and configuration feel like a
+    real programming environment rather than a pile of workarounds.
+
+    ## Why use it?
+
+    If you spend your day inside a terminal and want an editor that keeps up
+    with you, Neovim is hard to beat. It starts instantly, works over SSH,
+    and can be shaped into a full IDE without leaving the keyboard. The
+    project is also remarkably active: releases are frequent, the plugin
+    ecosystem is thriving, and moving from Vim is mostly painless.
+
+    ## Key features
+
+    - Built-in LSP client for completion, diagnostics, and refactoring
+    - Tree-sitter for fast, accurate syntax highlighting
+    - Lua configuration and plugin API, with full Vimscript compatibility
+    - Asynchronous plugin architecture that never blocks the UI
+    - Embedded terminal emulator
+    - The `vim` command and config files still work as you expect
+
+    ## How it compares
+
+    Against Vim, Neovim is the more modern codebase: async plugins, LSP,
+    and Lua are first-class rather than bolted on. Against GUI editors like
+    VS Code it trades polished defaults for speed, scriptability, and a
+    keyboard-first workflow. Against Helix it is more configurable, though
+    that flexibility means spending time on setup.
+license: Apache-2.0
+version: "0.11.5"
+first_release: "2014-03-23"
+latest_release: "2025-12-05"
+homepage: https://neovim.io
+repository: https://github.com/neovim/neovim
+icon: "🟩"
+packages:
+  apt: neovim
+  dnf: neovim
+  pacman: neovim
+  zypper: neovim
+related:
+  - vim
+  - helix
+  - emacs
+  - micro

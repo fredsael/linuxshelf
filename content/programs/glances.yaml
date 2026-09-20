@@ -1,0 +1,60 @@
+name: Glances
+slug: glances
+category: System Monitors
+tags:
+  - monitoring
+  - client-server
+  - web-interface
+  - python
+description:
+  short: A cross-platform system monitor that can run locally, in a web UI, or as a central server for many machines.
+  full: |
+    ## What is it?
+
+    Glances is a monitoring tool that goes beyond a single-machine TUI. It
+    collects CPU, memory, disk, network, sensor, container, and process
+    data, and can display it in the terminal, a web browser, or export it
+    to InfluxDB, Prometheus, or another Glances instance. A client/server
+    mode lets one dashboard watch a whole fleet.
+
+    ## Why use it?
+
+    Glances is the bridge between a quick local look and real monitoring.
+    You can run `glances` for an instant snapshot, then enable the web UI
+    when you want a browser tab, all without installing a full monitoring
+    stack. Its plugin architecture and REST API make it easy to script
+    against, and the alert thresholds are configurable.
+
+    ## Key features
+
+    - Local TUI, web interface, and REST API in one tool
+    - Client/server mode for monitoring multiple hosts
+    - Sensors, GPU, Docker, and process plugins
+    - Export to InfluxDB, Prometheus, CSV, and more
+    - Configurable thresholds and alerts
+    - Cross-platform: Linux, macOS, Windows, and BSD
+
+    ## How it compares
+
+    Against htop and btop, Glances is wider in scope but heavier — it is a
+    Python application and shows it. Against full platforms such as
+    Prometheus plus Grafana it is dramatically simpler, though less
+    powerful. Choose Glances when you want monitoring that scales from one
+    command to a small fleet without leaving the terminal world.
+license: LGPL-3.0-only
+version: "4.5.2"
+first_release: "2011-11-01"
+latest_release: "2026-06-01"
+homepage: https://nicolargo.github.io/glances/
+repository: https://github.com/nicolargo/glances
+icon: "👀"
+packages:
+  apt: glances
+  dnf: glances
+  pacman: glances
+  zypper: glances
+related:
+  - htop
+  - btop
+  - bottom
+  - fastfetch

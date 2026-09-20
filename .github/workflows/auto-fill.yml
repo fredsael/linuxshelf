@@ -1,0 +1,39 @@
+name: Auto-fill metadata
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-fill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Pull missing metadata from Repology
+        run: npm run auto-fill
+
+      - name: Open pull request with updated metadata
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore: auto-fill program metadata from Repology"
+          title: "chore: auto-fill program metadata from Repology"
+          body: |
+            Weekly automated update of blank program metadata (`version`,
+            `license`, `latest_release`, `packages`) from the Repology API.
+
+            Hand-written fields are never overwritten.
+          branch: chore/auto-fill-metadata
+          delete-branch: true

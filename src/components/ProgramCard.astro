@@ -1,0 +1,101 @@
+---
+import type { Program } from "../lib/schema";
+import ProgramIcon from "./ProgramIcon.astro";
+
+interface Props {
+  program: Program;
+}
+
+const { program } = Astro.props;
+const version = program.version.trim() || "—";
+const license = program.license.trim() || "—";
+---
+
+<a class="program-card" href={`/programs/${program.slug}`}>
+  <div class="program-card-head">
+    <ProgramIcon program={program} size={36} />
+    <h3 class="program-card-name">{program.name}</h3>
+  </div>
+  <p class="program-card-desc">{program.description.short}</p>
+  <dl class="program-card-meta">
+    <div>
+      <dt>Latest</dt>
+      <dd>{version}</dd>
+    </div>
+    <div>
+      <dt>License</dt>
+      <dd>{license}</dd>
+    </div>
+  </dl>
+</a>
+
+<style>
+  .program-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.1rem 1.2rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    transition:
+      border-color 120ms ease,
+      transform 120ms ease,
+      background 120ms ease;
+  }
+
+  .program-card:hover {
+    border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+    background: var(--surface-raised);
+    color: inherit;
+    transform: translateY(-2px);
+  }
+
+  .program-card-head {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+  }
+
+  .program-card-name {
+    margin: 0;
+    font-size: 1.08rem;
+  }
+
+  .program-card:hover .program-card-name {
+    color: var(--accent);
+  }
+
+  .program-card-desc {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    flex: 1;
+  }
+
+  .program-card-meta {
+    display: flex;
+    gap: 1.5rem;
+    margin: 0;
+    font-size: 0.78rem;
+  }
+
+  .program-card-meta div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .program-card-meta dt {
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 0.68rem;
+  }
+
+  .program-card-meta dd {
+    margin: 0;
+    font-family: var(--font-mono);
+    color: var(--text);
+  }
+</style>

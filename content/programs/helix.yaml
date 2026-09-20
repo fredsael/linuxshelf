@@ -1,0 +1,62 @@
+name: Helix
+slug: helix
+category: Text Editors
+tags:
+  - modal editing
+  - rust
+  - lsp
+  - treesitter
+  - batteries-included
+description:
+  short: A post-modern modal editor with sensible defaults, built-in LSP, and multiple selections as a core primitive.
+  full: |
+    ## What is it?
+
+    Helix is a modal editor written in Rust that takes the ideas of Kakoune
+    and Vim and modernizes them. Selection comes first: you select text and
+    then act on it, and every command works naturally with multiple
+    selections. It ships with a language server client, tree-sitter syntax
+    highlighting, and a fuzzy finder already wired up — no plugin manager
+    required to get started.
+
+    ## Why use it?
+
+    Helix is the easiest way to try modal editing without assembling a
+    config from scratch. Open a source file and you immediately get
+    diagnostics, completion, and accurate highlighting. Because the binary
+    is self-contained, installing it is a single package command, and its
+    keymap is consistent enough to learn in an afternoon.
+
+    ## Key features
+
+    - Built-in LSP support with no configuration
+    - Tree-sitter grammars for precise syntax highlighting and text objects
+    - Multiple selections everywhere as the core editing model
+    - Built-in fuzzy file picker and theme picker
+    - Space-key leader menu that documents itself
+    - Fast startup and a single static binary
+
+    ## How it compares
+
+    Against Neovim, Helix needs far less setup but offers a smaller plugin
+    ecosystem and a less configurable interface. Against Vim it is more
+    modern but breaks muscle memory: `x` selects a line rather than deleting
+    a character, and macros are still maturing. If you want a polished
+    default experience, Helix is the quickest path.
+license: MPL-2.0
+version: "26.03"
+first_release: "2021-06-17"
+latest_release: "2026-03-12"
+homepage: https://helix-editor.com
+repository: https://github.com/helix-editor/helix
+icon: "🌀"
+packages:
+  apt: helix
+  dnf: helix
+  pacman: helix
+  zypper: helix
+related:
+  - neovim
+  - vim
+  - micro
+  - emacs

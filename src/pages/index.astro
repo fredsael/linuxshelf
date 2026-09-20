@@ -1,0 +1,89 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import CategoryCard from "../components/CategoryCard.astro";
+import ProgramCard from "../components/ProgramCard.astro";
+import { loadPrograms } from "../lib/programs";
+import { deriveCategories } from "../lib/categories";
+
+const programs = loadPrograms();
+const categories = deriveCategories(programs);
+const featured = programs.slice(0, 6);
+---
+
+<BaseLayout>
+  <section class="hero container">
+    <p class="hero-kicker">Explore Linux software</p>
+    <h1>Find the right program for your Linux setup</h1>
+    <p class="hero-lede">
+      Browse {programs.length} curated programs across {categories.length} categories.
+      Every entry has a plain-English description, package metadata, and install
+      commands for Ubuntu/Debian, Fedora, Arch, and openSUSE.
+    </p>
+  </section>
+
+  <section class="container section" id="categories" aria-labelledby="categories-heading">
+    <h2 id="categories-heading" class="section-title">Categories</h2>
+    <div class="category-grid">
+      {categories.map((category) => <CategoryCard category={category} />)}
+    </div>
+  </section>
+
+  {featured.length > 0 && (
+    <section class="container section" aria-labelledby="featured-heading">
+      <h2 id="featured-heading" class="section-title">A few to get started</h2>
+      <div class="program-grid">
+        {featured.map((program) => <ProgramCard program={program} />)}
+      </div>
+    </section>
+  )}
+</BaseLayout>
+
+<style>
+  .hero {
+    padding: 3.5rem 1.25rem 1rem;
+    max-width: var(--max-width);
+  }
+
+  .hero-kicker {
+    margin: 0 0 0.5rem;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .hero h1 {
+    font-size: clamp(1.9rem, 4.5vw, 3rem);
+    max-width: 22ch;
+    margin-bottom: 0.75rem;
+  }
+
+  .hero-lede {
+    max-width: 62ch;
+    color: var(--text-muted);
+    font-size: 1.05rem;
+    margin: 0;
+  }
+
+  .section {
+    padding-top: 2.75rem;
+  }
+
+  .section-title {
+    font-size: 1.35rem;
+    margin-bottom: 1rem;
+  }
+
+  .category-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+
+  .program-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+</style>

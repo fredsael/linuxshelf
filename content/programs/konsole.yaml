@@ -1,0 +1,60 @@
+name: Konsole
+slug: konsole
+category: Terminal Emulators
+tags:
+  - kde
+  - tabs
+  - profiles
+  - bookmarks
+description:
+  short: KDE's full-featured terminal emulator with profiles, tabs, splits, and deep desktop integration.
+  full: |
+    ## What is it?
+
+    Konsole is the terminal emulator of the KDE Plasma desktop. It is a
+    conventional GUI terminal with tabs, split views, named profiles,
+    bookmarks, and search, plus small conveniences such as notifications
+    when a long command finishes and the ability to open a file manager or
+    editor from the current directory.
+
+    ## Why use it?
+
+    Konsole is the natural choice on KDE: it follows your system theme,
+    integrates with KDE services and shortcuts, and behaves like a
+    first-class desktop application. Its profiles let you keep separate
+    color schemes and startup commands for different tasks, and the
+    scrollback handling is robust for reading long build logs.
+
+    ## Key features
+
+    - Tabs and split views with drag-and-drop rearrangement
+    - Named profiles with per-profile colors, fonts, and commands
+    - Scrollback search and unlimited history configuration
+    - Bookmarks and directory tracking
+    - Desktop notifications for completed commands
+    - Available on any desktop, not just Plasma
+
+    ## How it compares
+
+    Against GNOME Terminal it is more configurable and slightly heavier.
+    Against GPU terminals such as Kitty and Alacritty it is slower at
+    extreme frame rates but integrates better with KDE and requires no
+    configuration to look right. A solid, familiar default for desktop
+    users who spend their time in a GUI.
+license: GPL-2.0-or-later
+version: "25.12.2"
+first_release: "2001-01-01"
+latest_release: "2026-02-05"
+homepage: https://konsole.kde.org
+repository: https://invent.kde.org/utilities/konsole
+icon: "⌨️"
+packages:
+  apt: konsole
+  dnf: konsole
+  pacman: konsole
+  zypper: konsole
+related:
+  - kitty
+  - alacritty
+  - wezterm
+  - st

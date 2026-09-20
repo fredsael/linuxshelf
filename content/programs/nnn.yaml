@@ -1,0 +1,60 @@
+name: nnn
+slug: nnn
+category: File Managers
+tags:
+  - terminal
+  - c
+  - minimal
+  - fast
+  - plugins
+description:
+  short: A tiny, lightning-fast terminal file manager in C with session management and a rich plugin set.
+  full: |
+    ## What is it?
+
+    nnn is a full-featured terminal file manager written in C with almost no
+    dependencies. It opens instantly, handles enormous directories without
+    lag, and supports multiple contexts (workspaces), sessions that persist
+    across restarts, and a large collection of plugins for everything from
+    mounting disks to batch renaming.
+
+    ## Why use it?
+
+    nnn is the choice when speed and portability matter most. It runs on
+    minimal systems, over slow SSH connections, and in containers where a
+    Python or Rust runtime would be unwelcome. Despite its size it is not
+    spartan: file type indicators, disk usage analysis, and a "type to
+    navigate" mode make it comfortable for daily use.
+
+    ## Key features
+
+    - Near-instant startup and constant low memory use
+    - Multiple contexts and persistent sessions
+    - Type-to-navigate, navigate-as-you-type, and fuzzy matching
+    - Plugin ecosystem, including disk usage and file transfer tools
+    - Detailed file information and batch operations
+    - Runs on almost any POSIX-like system
+
+    ## How it compares
+
+    Against Ranger and Yazi, nnn gives up three-column previews and heavy
+    scripting for raw speed and a tiny footprint. Against lf it is more
+    feature-packed out of the box but configured differently. Pick nnn when
+    you want a file manager that disappears into the background.
+license: BSD-2-Clause
+version: "5.1"
+first_release: "2016-06-01"
+latest_release: "2026-01-15"
+homepage: https://github.com/jarun/nnn
+repository: https://github.com/jarun/nnn
+icon: "🗂️"
+packages:
+  apt: nnn
+  dnf: nnn
+  pacman: nnn
+  zypper: nnn
+related:
+  - ranger
+  - yazi
+  - lf
+  - midnight-commander

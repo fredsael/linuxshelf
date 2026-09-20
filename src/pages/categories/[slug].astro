@@ -1,0 +1,89 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import ProgramCard from "../../components/ProgramCard.astro";
+import { loadPrograms } from "../../lib/programs";
+import { deriveCategories, programsInCategory } from "../../lib/categories";
+import { categoryIcon } from "../../lib/category-icons";
+
+export function getStaticPaths() {
+  const programs = loadPrograms();
+  return deriveCategories(programs).map((category) => ({
+    params: { slug: category.slug },
+    props: { category },
+  }));
+}
+
+const { category } = Astro.props;
+const programs = programsInCategory(loadPrograms(), category.slug);
+---
+
+<BaseLayout
+  title={`${category.name} — Linux Programs Explorer`}
+  description={`Browse ${category.count} ${category.name.toLowerCase()} for Linux with descriptions, licenses, versions, and install commands.`}
+>
+  <section class="container category-header">
+    <p class="breadcrumb">
+      <a href="/">Home</a> <span aria-hidden="true">/</span>
+      <a href="/#categories">Categories</a> <span aria-hidden="true">/</span>
+      <span>{category.name}</span>
+    </p>
+    <h1>
+      <span class="category-emoji" aria-hidden="true">{categoryIcon(category.name)}</span>
+      {category.name}
+    </h1>
+    <p class="category-lede">
+      {category.count} {category.count === 1 ? "program" : "programs"} in this category.
+      Pick one to see its full description, metadata, and install commands.
+    </p>
+  </section>
+
+  <section class="container" aria-label={`Programs in ${category.name}`}>
+    <div class="program-grid">
+      {programs.map((program) => <ProgramCard program={program} />)}
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .category-header {
+    padding-top: 2.5rem;
+    padding-bottom: 1.75rem;
+  }
+
+  .breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0 0 1rem;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+  }
+
+  .breadcrumb a:hover {
+    color: var(--accent);
+  }
+
+  .category-header h1 {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: clamp(1.7rem, 4vw, 2.4rem);
+    margin-bottom: 0.5rem;
+  }
+
+  .category-emoji {
+    font-size: 0.9em;
+  }
+
+  .category-lede {
+    color: var(--text-muted);
+    max-width: 60ch;
+    margin: 0;
+  }
+
+  .program-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+</style>

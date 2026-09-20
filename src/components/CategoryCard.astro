@@ -1,0 +1,98 @@
+---
+import type { Category } from "../lib/categories";
+import { categoryIcon } from "../lib/category-icons";
+
+interface Props {
+  category: Category;
+}
+
+const { category } = Astro.props;
+---
+
+<a class="category-card" href={`/categories/${category.slug}`}>
+  <span class="category-icon" aria-hidden="true">{categoryIcon(category.name)}</span>
+  <span class="category-info">
+    <span class="category-name">{category.name}</span>
+    <span class="category-count">
+      {category.count} {category.count === 1 ? "program" : "programs"}
+    </span>
+  </span>
+  <svg
+    class="category-arrow"
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M5 12h14"></path>
+    <path d="m12 5 7 7-7 7"></path>
+  </svg>
+</a>
+
+<style>
+  .category-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    transition:
+      border-color 120ms ease,
+      background 120ms ease,
+      transform 120ms ease;
+  }
+
+  .category-card:hover {
+    border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+    background: var(--surface-raised);
+    color: inherit;
+    transform: translateY(-2px);
+  }
+
+  .category-icon {
+    font-size: 1.8rem;
+    line-height: 1;
+    flex: none;
+  }
+
+  .category-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .category-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .category-card:hover .category-name {
+    color: var(--accent);
+  }
+
+  .category-count {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+
+  .category-arrow {
+    color: var(--text-muted);
+    flex: none;
+    transition: transform 120ms ease, color 120ms ease;
+  }
+
+  .category-card:hover .category-arrow {
+    color: var(--accent);
+    transform: translateX(3px);
+  }
+</style>

@@ -1,0 +1,57 @@
+name: Alacritty
+slug: alacritty
+category: Terminal Emulators
+tags:
+  - gpu-accelerated
+  - wayland
+  - vi-mode
+  - performance
+description:
+  short: A GPU-accelerated terminal emulator focused on speed, simplicity, and sane defaults.
+  full: |
+    ## What is it?
+
+    Alacritty is a terminal emulator that renders through the GPU via
+    OpenGL. It deliberately ships with almost no UI chrome: no tabs, no
+    splits, no scrollback bar. Instead it aims to be the fastest possible
+    terminal and lets a window manager or terminal multiplexer such as tmux
+    provide the extras.
+
+    ## Why use it?
+
+    Alacritty is for people who notice input latency. Scrolling through huge
+    logs or redrawing a full-screen TUI feels immediate, and CPU usage stays
+    low even on high-refresh displays. Configuration lives in a single YAML
+    file, so it is easy to version and copy between machines.
+
+    ## Key features
+
+    - GPU rendering for very low latency and high frame rates
+    - Vi-mode with keyboard-driven selection and search
+    - True color and hyperlink support
+    - Cross-platform: Linux, macOS, Windows, and the BSDs
+    - Live configuration reload
+    - Minimal, focused codebase with a small attack surface
+
+    ## How it compares
+
+    Against Kitty, Alacritty is simpler and skips built-in tabs, splits, and
+    ligatures, so it pairs naturally with a multiplexer. Against WezTerm it
+    is lighter but less feature-rich. Against GNOME Terminal or Konsole it
+    gives up GUI conveniences in exchange for raw speed and portability.
+license: Apache-2.0
+version: "0.16.1"
+first_release: "2017-01-06"
+latest_release: "2025-10-14"
+homepage: https://alacritty.org
+repository: https://github.com/alacritty/alacritty
+icon: ">_"
+packages:
+  apt: alacritty
+  dnf: alacritty
+  pacman: alacritty
+  zypper: alacritty
+related:
+  - kitty
+  - wezterm
+  - foot

@@ -1,0 +1,59 @@
+name: Foot
+slug: foot
+category: Terminal Emulators
+tags:
+  - wayland
+  - lightweight
+  - fast
+  - server-mode
+description:
+  short: A fast, lightweight Wayland terminal emulator designed for minimal resource use.
+  full: |
+    ## What is it?
+
+    Foot is a terminal emulator for Wayland, written in C and tuned for low
+    memory use and low latency. It does not aim to replace a multiplexer or
+    provide tabs; instead it renders one terminal window very efficiently.
+    A server mode lets multiple windows share a single process, and its
+    configuration lives in a plain INI file.
+
+    ## Why use it?
+
+    Foot is ideal for tiling-window users on Wayland who already use tmux or
+    a compositor's window management. It starts in milliseconds, uses a
+    fraction of the memory of GPU terminals, and still supports modern
+    features such as true color, hyperlinks, and font ligatures. On older
+    or memory-constrained hardware, that difference is noticeable.
+
+    ## Key features
+
+    - Native Wayland client with no X11 dependency
+    - Server mode: one process backs many windows
+    - Low memory footprint and fast startup
+    - True color, OSC 8 hyperlinks, and sixel image support
+    - Client-side decorations via the `[csd]` config section
+    - Pipe- and scrollback search
+
+    ## How it compares
+
+    Against Alacritty and Kitty, Foot gives up GPU rendering and built-in
+    tabs in exchange for a smaller footprint and tight Wayland integration.
+    It only runs on Wayland, so X11 users need Alacritty, Kitty, or xterm.
+    If your setup is Wayland plus tmux, Foot is often the leanest choice.
+license: MIT
+version: "1.24.0"
+first_release: "2019-05-01"
+latest_release: "2026-03-08"
+homepage: https://codeberg.org/dnkl/foot
+repository: https://codeberg.org/dnkl/foot
+icon: "🦶"
+packages:
+  apt: foot
+  dnf: foot
+  pacman: foot
+  zypper: foot
+related:
+  - alacritty
+  - kitty
+  - wezterm
+  - st

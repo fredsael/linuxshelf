@@ -1,0 +1,223 @@
+---
+import { marked } from "marked";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import InstallTabs from "../../components/InstallTabs.astro";
+import ProgramCard from "../../components/ProgramCard.astro";
+import ProgramIcon from "../../components/ProgramIcon.astro";
+import { loadPrograms, findProgram } from "../../lib/programs";
+import { slugify } from "../../lib/categories";
+import { formatDate } from "../../lib/format";
+
+export function getStaticPaths() {
+  return loadPrograms().map((program) => ({
+    params: { slug: program.slug },
+    props: { program },
+  }));
+}
+
+const { program } = Astro.props;
+const programs = loadPrograms();
+const related = program.related
+  .map((slug) => findProgram(programs, slug))
+  .filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+const descriptionHtml = await marked.parse(program.description.full);
+const version = program.version.trim() || "—";
+const categorySlug = slugify(program.category);
+---
+
+<BaseLayout
+  title={`${program.name} — Linux Programs Explorer`}
+  description={program.description.short}
+>
+  <article class="container program" data-pagefind-body>
+    <p class="breadcrumb">
+      <a href="/">Home</a> <span aria-hidden="true">/</span>
+      <a href={`/categories/${categorySlug}`}>{program.category}</a>
+      <span aria-hidden="true">/</span>
+      <span>{program.name}</span>
+    </p>
+
+    <header class="program-header">
+      <div class="program-title">
+        <ProgramIcon program={program} size={56} />
+        <div>
+          <h1 data-pagefind-meta="title">{program.name}</h1>
+          <p class="program-short">{program.description.short}</p>
+        </div>
+      </div>
+
+      <div class="badges">
+        <a class="badge badge--accent" href={`/categories/${categorySlug}`}>
+          {program.category}
+        </a>
+        {program.tags.map((tag) => <span class="badge">#{tag}</span>)}
+      </div>
+
+      <dl class="program-meta">
+        <div>
+          <dt>Latest version</dt>
+          <dd>{version}</dd>
+        </div>
+        <div>
+          <dt>First release</dt>
+          <dd>{formatDate(program.first_release)}</dd>
+        </div>
+        <div>
+          <dt>Latest release</dt>
+          <dd>{formatDate(program.latest_release)}</dd>
+        </div>
+        <div>
+          <dt>License</dt>
+          <dd>{program.license.trim() || "—"}</dd>
+        </div>
+      </dl>
+
+      <div class="actions">
+        <a
+          class="button button--primary"
+          href={program.homepage}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Visit homepage
+          <span aria-hidden="true">↗</span>
+        </a>
+        {
+          program.repository && (
+            <a
+              class="button"
+              href={program.repository}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Source repository
+              <span aria-hidden="true">↗</span>
+            </a>
+          )
+        }
+      </div>
+    </header>
+
+    <div data-pagefind-ignore>
+      <InstallTabs program={program} />
+    </div>
+
+    <section class="description prose" set:html={descriptionHtml} />
+
+    {
+      related.length > 0 && (
+        <section class="related" aria-labelledby="related-heading" data-pagefind-ignore>
+          <h2 id="related-heading">Related programs</h2>
+          <div class="program-grid">
+            {related.map((item) => (
+              <ProgramCard program={item} />
+            ))}
+          </div>
+        </section>
+      )
+    }
+  </article>
+</BaseLayout>
+
+<style>
+  .program {
+    padding-top: 2.5rem;
+  }
+
+  .breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0 0 1.25rem;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+  }
+
+  .breadcrumb a:hover {
+    color: var(--accent);
+  }
+
+  .program-header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.5rem;
+  }
+
+  .program-title {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .program-title h1 {
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+    margin-bottom: 0.35rem;
+  }
+
+  .program-short {
+    color: var(--text-muted);
+    font-size: 1.05rem;
+    max-width: 65ch;
+    margin: 0;
+  }
+
+  .badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-top: 1rem;
+  }
+
+  .program-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0 0;
+  }
+
+  .program-meta div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .program-meta dt {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .program-meta dd {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 1.5rem;
+  }
+
+  .description {
+    margin-top: 2.5rem;
+  }
+
+  .related {
+    margin-top: 3rem;
+    border-top: 1px solid var(--border);
+    padding-top: 1.75rem;
+  }
+
+  .related h2 {
+    font-size: 1.25rem;
+  }
+
+  .program-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+</style>

@@ -1,0 +1,60 @@
+name: bottom
+slug: bottom
+category: System Monitors
+tags:
+  - resource-monitor
+  - rust
+  - graphs
+  - configurable
+description:
+  short: A customizable cross-platform system monitor in Rust with zoomable charts and a config file.
+  full: |
+    ## What is it?
+
+    bottom (invoked as `btm`) is a terminal system monitor written in Rust.
+    It shows CPU, memory, network, disk, temperature, and process widgets
+    that you can show, hide, rearrange, and resize from a TOML config file.
+    Charts can be zoomed and panned, and the process table supports
+    filtering and sorting by any column.
+
+    ## Why use it?
+
+    Bottom is for people who want their monitor exactly their way. The
+    config file controls default widgets, colors, time ranges, and
+    behaviour, and a command-line flag can start it with a specific layout
+    for a script or tmux popup. It is cross-platform, so the same config
+    works on Linux, macOS, and Windows.
+
+    ## Key features
+
+    - Configurable widgets and layouts via TOML
+    - Zoomable, scrollable time-series charts
+    - Per-process CPU, memory, and disk usage
+    - Temperature and battery widgets where available
+    - Basic mode for terminals without advanced color support
+    - Free and open source, written in Rust
+
+    ## How it compares
+
+    Against htop, bottom offers richer charts and configuration but a
+    busier default screen. Against btop it is more keyboard-centric and
+    config-driven, with fewer mouse niceties. Against glances it is a
+    local monitor rather than a remote-capable one. A strong choice if you
+    like to tune your tools.
+license: MIT
+version: "0.11.2"
+first_release: "2020-11-01"
+latest_release: "2026-05-20"
+homepage: https://clementtsang.github.io/bottom/
+repository: https://github.com/ClementTsang/bottom
+icon: "📉"
+packages:
+  apt: bottom
+  dnf: bottom
+  pacman: bottom
+  zypper: bottom
+related:
+  - htop
+  - btop
+  - glances
+  - fastfetch

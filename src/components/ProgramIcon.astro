@@ -1,0 +1,52 @@
+---
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import type { Program } from "../lib/schema";
+
+interface Props {
+  program: Program;
+  size?: number;
+}
+
+const { program, size = 40 } = Astro.props;
+const iconsDir = fileURLToPath(new URL("../../public/icons", import.meta.url));
+const hasSvg = existsSync(join(iconsDir, `${program.slug}.svg`));
+const emoji = program.icon?.trim() || "📦";
+---
+
+{
+  hasSvg ? (
+    <img
+      class="program-icon"
+      src={`/icons/${program.slug}.svg`}
+      alt=""
+      width={size}
+      height={size}
+      loading="lazy"
+    />
+  ) : (
+    <span
+      class="program-icon program-icon--emoji"
+      style={`width:${size}px;height:${size}px;font-size:${Math.round(size * 0.62)}px`}
+      aria-hidden="true"
+    >
+      {emoji}
+    </span>
+  )
+}
+
+<style>
+  .program-icon {
+    flex: none;
+    object-fit: contain;
+    border-radius: 8px;
+  }
+
+  .program-icon--emoji {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+</style>

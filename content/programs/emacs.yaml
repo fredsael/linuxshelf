@@ -1,0 +1,62 @@
+name: GNU Emacs
+slug: emacs
+category: Text Editors
+tags:
+  - extensible
+  - lisp
+  - org-mode
+  - keyboard-driven
+  - ide
+description:
+  short: An infinitely extensible editor and computing environment powered by Emacs Lisp, with an ecosystem that spans decades.
+  full: |
+    ## What is it?
+
+    GNU Emacs is less an editor than a Lisp machine that happens to be very
+    good at editing text. Every behaviour, from keybindings to window
+    management, is implemented in Emacs Lisp and can be redefined while the
+    editor is running. Users routinely live inside it for mail, notes
+    (Org mode), Git, shells, and programming.
+
+    ## Why use it?
+
+    Emacs is for people who want one tool they can reshape indefinitely.
+    Packages live in the same language as the core, so the line between
+    configuration and extension disappears. Org mode alone — notes,
+    agendas, literate programming, and export — justifies the learning
+    curve for many users, and the editor runs on everything from a
+    terminal to a native-compiled GUI.
+
+    ## Key features
+
+    - Full elisp interpreter with live, incremental customization
+    - Org mode for notes, tasks, and publishing
+    - Built-in package manager (MELPA and friends)
+    - Dired file manager, Magit Git client, TRAMP remote editing
+    - Native compilation for fast startup and execution
+    - Runs in the terminal or as a GUI, with identical keybindings
+
+    ## How it compares
+
+    Vim and Neovim ask you to edit text fast; Emacs asks you to build an
+    environment. Neovim is lighter and starts faster, while Emacs offers a
+    deeper, more uniform extension story and tools such as Org mode that
+    have no real equivalent. If you prefer configuration over Lisp, Helix
+    or Micro will feel friendlier.
+license: GPL-3.0-or-later
+version: "30.2"
+first_release: "1985-03-20"
+latest_release: "2026-06-10"
+homepage: https://www.gnu.org/software/emacs/
+repository: https://git.savannah.gnu.org/cgit/emacs.git
+icon: "🐃"
+packages:
+  apt: emacs
+  dnf: emacs
+  pacman: emacs
+  zypper: emacs
+related:
+  - neovim
+  - vim
+  - helix
+  - micro

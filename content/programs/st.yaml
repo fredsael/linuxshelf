@@ -1,0 +1,58 @@
+name: st
+slug: st
+category: Terminal Emulators
+tags:
+  - minimal
+  - suckless
+  - x11
+  - source-configured
+description:
+  short: The suckless simple terminal — a tiny X11 terminal configured by editing C source and recompiling.
+  full: |
+    ## What is it?
+
+    st is the "simple terminal" from suckless.org, the group behind dwm and
+    dmenu. It is a few thousand lines of C with no configuration file at
+    all: you set fonts, colors, and keybindings by editing `config.h` and
+    recompiling. Patches from the community add features such as scrollback
+    or ligatures one diff at a time.
+
+    ## Why use it?
+
+    st exists for people who want to understand and control every line of
+    the software they run. There is no plugin system and no hidden state —
+    what you compile is exactly what runs. It starts instantly, uses almost
+    no memory, and pairs naturally with other suckless tools and a
+    keyboard-driven window manager.
+
+    ## Key features
+
+    - Extremely small codebase auditable in an afternoon
+    - Configuration is C: no runtime config parser or scripting layer
+    - True color and wide-character support
+    - Sixel image support in recent versions
+    - Community patch ecosystem for scrollback, ligatures, and more
+    - Negligible memory and CPU usage
+
+    ## How it compares
+
+    Against Foot, st runs on X11, has no server mode, and requires
+    recompilation for basic changes. Against Alacritty and Kitty there is no
+    GPU acceleration and no tabs or multiplexing. Choose st when minimalism
+    is the point, and a mainstream terminal when it is not.
+license: MIT
+version: "0.9.2"
+first_release: "2012-08-01"
+latest_release: "2024-10-01"
+homepage: https://st.suckless.org
+repository: https://git.suckless.org/st
+icon: "🟦"
+packages:
+  apt: stterm
+  dnf: st
+  pacman: st
+related:
+  - foot
+  - alacritty
+  - konsole
+  - kitty

@@ -1,0 +1,285 @@
+---
+import { buildInstallTabs } from "../lib/install";
+import type { Program } from "../lib/schema";
+
+interface Props {
+  program: Program;
+}
+
+const { program } = Astro.props;
+const tabs = buildInstallTabs(program);
+---
+
+<section class="install" aria-labelledby="install-heading">
+  <h2 id="install-heading" class="install-title">Install</h2>
+  {
+    tabs.length === 0 ? (
+      <p class="install-empty">
+        No packaged version found for the major distributions. Check the
+        upstream project for installation instructions.
+      </p>
+    ) : (
+      <div class="install-tabs" data-install-tabs>
+        <div class="tablist" role="tablist" aria-label="Distribution">
+          {tabs.map((tab, index) => (
+            <button
+              type="button"
+              role="tab"
+              id={`tab-${tab.id}`}
+              aria-controls={`panel-${tab.id}`}
+              aria-selected={index === 0 ? "true" : "false"}
+              tabindex={index === 0 ? 0 : -1}
+              class:list={["tab", index === 0 && "is-active"]}
+              data-tab={tab.id}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        {tabs.map((tab, index) => (
+          <div
+            role="tabpanel"
+            id={`panel-${tab.id}`}
+            aria-labelledby={`tab-${tab.id}`}
+            hidden={index !== 0}
+            data-panel={tab.id}
+          >
+            <div class="code-row">
+              <pre><code>{tab.command}</code></pre>
+              <button
+                type="button"
+                class="copy-button"
+                data-copy={tab.command}
+                aria-label={`Copy install command for ${tab.label}`}
+              >
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
+                  <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+                </svg>
+                <span data-copy-label>Copy</span>
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+</section>
+
+<noscript>
+  <style>
+    .install [data-panel][hidden] {
+      display: block !important;
+    }
+
+    .install .tablist {
+      display: none;
+    }
+  </style>
+</noscript>
+
+<script>
+  interface CopyButton extends HTMLButtonElement {
+    dataset: DOMStringMap & { copy?: string };
+  }
+
+  const copyText = async (text: string): Promise<boolean> => {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.setAttribute("readonly", "");
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      let ok = false;
+      try {
+        ok = document.execCommand("copy");
+      } catch {
+        ok = false;
+      }
+      area.remove();
+      return ok;
+    }
+  };
+
+  document.querySelectorAll<HTMLElement>("[data-install-tabs]").forEach((root) => {
+    const tabs = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-tab]"));
+    const panels = Array.from(root.querySelectorAll<HTMLElement>("[data-panel]"));
+
+    const select = (id: string, focus = false) => {
+      for (const tab of tabs) {
+        const active = tab.dataset.tab === id;
+        tab.classList.toggle("is-active", active);
+        tab.setAttribute("aria-selected", String(active));
+        tab.tabIndex = active ? 0 : -1;
+        if (active && focus) tab.focus();
+      }
+      for (const panel of panels) {
+        panel.hidden = panel.dataset.panel !== id;
+      }
+    };
+
+    for (const tab of tabs) {
+      tab.addEventListener("click", () => select(tab.dataset.tab ?? ""));
+      tab.addEventListener("keydown", (event) => {
+        const index = tabs.indexOf(tab);
+        let next = -1;
+        if (event.key === "ArrowRight") next = (index + 1) % tabs.length;
+        else if (event.key === "ArrowLeft") next = (index - 1 + tabs.length) % tabs.length;
+        else if (event.key === "Home") next = 0;
+        else if (event.key === "End") next = tabs.length - 1;
+        if (next >= 0) {
+          event.preventDefault();
+          select(tabs[next].dataset.tab ?? "", true);
+        }
+      });
+    }
+
+    root.querySelectorAll<CopyButton>("[data-copy]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const text = button.dataset.copy ?? "";
+        const label = button.querySelector<HTMLElement>("[data-copy-label]");
+        const ok = await copyText(text);
+        if (label) {
+          label.textContent = ok ? "Copied!" : "Failed";
+          button.classList.toggle("is-copied", ok);
+          setTimeout(() => {
+            label.textContent = "Copy";
+            button.classList.remove("is-copied");
+          }, 1600);
+        }
+      });
+    });
+  });
+</script>
+
+<style>
+  .install {
+    margin-top: 1.75rem;
+  }
+
+  .install-title {
+    font-size: 1.05rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .install-empty {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 0.9rem 1rem;
+    margin: 0;
+  }
+
+  .install-tabs {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    overflow: hidden;
+  }
+
+  .tablist {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    padding: 0.4rem 0.4rem 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  .tab {
+    appearance: none;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 550;
+    padding: 0.5em 0.9em;
+    cursor: pointer;
+    position: relative;
+    top: 1px;
+  }
+
+  .tab:hover {
+    color: var(--text);
+  }
+
+  .tab.is-active {
+    background: var(--surface);
+    border-color: var(--border);
+    color: var(--accent);
+  }
+
+  .code-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+  }
+
+  pre {
+    flex: 1;
+    margin: 0;
+    overflow-x: auto;
+    font-size: 0.88rem;
+    line-height: 1.5;
+  }
+
+  code {
+    background: transparent;
+    border: none;
+    padding: 0;
+  }
+
+  pre code::before {
+    content: "$ ";
+    color: var(--text-muted);
+    user-select: none;
+  }
+
+  .copy-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    flex: none;
+    padding: 0.45em 0.8em;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition:
+      border-color 120ms ease,
+      color 120ms ease;
+  }
+
+  .copy-button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .copy-button.is-copied {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+</style>

@@ -1,0 +1,60 @@
+name: WezTerm
+slug: wezterm
+category: Terminal Emulators
+tags:
+  - gpu-accelerated
+  - lua
+  - multiplexer
+  - cross-platform
+description:
+  short: A GPU terminal and multiplexer configured entirely in Lua, with tabs, panes, and deep customization.
+  full: |
+    ## What is it?
+
+    WezTerm is a GPU-accelerated terminal emulator and terminal multiplexer
+    in one program. Tabs, panes, and sessions are built in, so you can skip
+    tmux if you like, and the entire configuration is a Lua script. That
+    means you can generate keybindings programmatically, query the system,
+    and build dynamic status bars without leaving the config file.
+
+    ## Why use it?
+
+    WezTerm suits people who want their terminal to be a project. The Lua
+    configuration is genuinely powerful — you can write functions, load
+    modules, and change behaviour based on the hostname or time of day. It
+    runs on Linux, macOS, and Windows with the same config, and its
+    multiplexer supports attaching and detaching sessions like tmux.
+
+    ## Key features
+
+    - GPU rendering via WebGPU/OpenGL with fallbacks
+    - Tabs, panes, and workspaces without an external multiplexer
+    - Lua configuration for keybindings, colors, and dynamic behaviour
+    - Ligature support and font fallback across scripts
+    - Image and sixel support in the terminal
+    - Cross-platform, including serial and SSH domains
+
+    ## How it compares
+
+    Against Kitty, WezTerm is more configurable and has a stronger built-in
+    multiplexer, but the Lua learning curve is real. Against Alacritty it is
+    heavier and more featureful. If you already use tmux and only want a
+    fast renderer, both Alacritty and Kitty are simpler; choose WezTerm when
+    you want to shape the whole experience.
+license: MIT
+version: "20240203"
+first_release: "2018-09-02"
+latest_release: "2025-12-01"
+homepage: https://wezterm.org
+repository: https://github.com/wez/wezterm
+icon: "🦇"
+packages:
+  apt: wezterm
+  dnf: wezterm
+  pacman: wezterm
+  zypper: wezterm
+related:
+  - kitty
+  - alacritty
+  - foot
+  - konsole

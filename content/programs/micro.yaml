@@ -1,0 +1,60 @@
+name: Micro
+slug: micro
+category: Text Editors
+tags:
+  - terminal
+  - mouse-support
+  - beginner-friendly
+  - plugins
+description:
+  short: A modern terminal editor with the keybindings you already know and no modes to learn.
+  full: |
+    ## What is it?
+
+    Micro is a terminal-based text editor that behaves like a GUI editor.
+    Ctrl+S saves, Ctrl+Q quits, Ctrl+C and Ctrl+V copy and paste, and the
+    mouse works for selecting text and clicking tabs. It is written in Go
+    and ships as a single binary, so installing it never drags in a
+    dependency tree.
+
+    ## Why use it?
+
+    Micro is the answer for people who need to edit a file over SSH and do
+    not want to fight Vim's modes for a five-line change. It is also a
+    gentle on-ramp for anyone learning the terminal: you get syntax
+    highlighting, multiple cursors, splits, and a plugin manager without
+    changing how you think about editing.
+
+    ## Key features
+
+    - Familiar Ctrl-based shortcuts, with optional emacs or Vim keybindings
+    - Mouse support for selection, scrolling, and clicking tabs
+    - Syntax highlighting for 100+ languages
+    - Multiple cursors and a built-in plugin manager
+    - Splits and tabs within a single terminal window
+    - True color and 256-color theme support
+
+    ## How it compares
+
+    Against Nano, Micro is far more capable: plugins, multiple cursors,
+    splits, and mouse support, with the same approachable keybindings.
+    Against Neovim or Helix it trades power and ecosystem size for instant
+    familiarity. A good first terminal editor, and a reliable fallback when
+    you only need to change one line of config.
+license: MIT
+version: "2.0.15"
+first_release: "2016-10-01"
+latest_release: "2026-01-22"
+homepage: https://micro-editor.github.io
+repository: https://github.com/zyedidia/micro
+icon: "✏️"
+packages:
+  apt: micro
+  dnf: micro
+  pacman: micro
+  zypper: micro
+related:
+  - nano
+  - neovim
+  - helix
+  - vim

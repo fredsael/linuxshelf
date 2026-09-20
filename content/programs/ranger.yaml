@@ -1,0 +1,60 @@
+name: ranger
+slug: ranger
+category: File Managers
+tags:
+  - terminal
+  - vim-keybindings
+  - previews
+  - python
+description:
+  short: A Vim-inspired terminal file manager with three columns, file previews, and a Python configuration.
+  full: |
+    ## What is it?
+
+    Ranger is a terminal file manager built around three columns: the
+    parent directory, the current directory, and a preview of the selected
+    file. It uses Vim-style keybindings for navigation, marks, and bulk
+    operations, and it can preview text, images, PDFs, and archives without
+    leaving the terminal. Configuration and commands are written in Python.
+
+    ## Why use it?
+
+    Ranger is for people who already think in Vim motions and want file
+    management to feel the same. The preview pane alone saves time when
+    sorting through directories of images or documents, and `:shell`
+    commands let you run any tool against the current selection. Because
+    it is scriptable in Python, custom commands are straightforward.
+
+    ## Key features
+
+    - Miller-column layout with live file previews
+    - Vim-style keybindings, marks, and bulk rename
+    - Tabs, bookmarks, and directory history
+    - Preview support for text, images, PDFs, and archives
+    - Python configuration and command API
+    - `rifle` launcher chooses the right program per file type
+
+    ## How it compares
+
+    Against nnn, Ranger is heavier — Python startup is noticeable — but
+    more discoverable and scriptable. Against yazi it is slower and lacks a
+    built-in async preview engine, though its ecosystem and documentation
+    are more mature. Against GUI managers it trades icons and mouse
+    support for speed and keyboard control.
+license: GPL-3.0-only
+version: "1.9.4"
+first_release: "2009-09-01"
+latest_release: "2024-09-01"
+homepage: https://ranger.github.io
+repository: https://github.com/ranger/ranger
+icon: "🏕️"
+packages:
+  apt: ranger
+  dnf: ranger
+  pacman: ranger
+  zypper: ranger
+related:
+  - yazi
+  - nnn
+  - lf
+  - midnight-commander
