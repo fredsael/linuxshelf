@@ -1,4 +1,4 @@
-# Linuxshelf
+# LinuxShelf
 
 A catalog of terminal-linux programs, each described and tracked across its distribution packages and release history.
 

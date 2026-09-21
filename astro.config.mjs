@@ -2,7 +2,7 @@
 import { defineConfig } from "astro/config";
 
 export default defineConfig({
-  site: "https://linux-programs.vercel.app",
+  site: "https://linuxshelf.com",
   output: "static",
   build: {
     format: "directory",

@@ -194,7 +194,7 @@ export interface FetchOptions {
   timeoutMs?: number;
 }
 
-const USER_AGENT = "linux-programs-explorer/1.0 (auto-fill script)";
+const USER_AGENT = "linuxshelf/1.0 (auto-fill script)";
 
 /** Fetch a JSON array, throwing on HTTP errors, timeouts or unexpected bodies. */
 async function fetchJsonArray(
