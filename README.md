@@ -1,11 +1,11 @@
-# Linux Programs Explorer
+# LinuxShelf
 
 A static website for browsing and comparing curated Linux programs by
 category — descriptions, licenses, versions, and install commands for
 Ubuntu/Debian, Fedora, Arch, and openSUSE.
 
 Built with [Astro](https://astro.build) and searched client-side with
-[Pagefind](https://pagefind.app). Deployed to Vercel on push to `main`.
+[Pagefind](https://pagefind.app). Published at [linuxshelf.com](https://linuxshelf.com).
 
 ## Commands
 
