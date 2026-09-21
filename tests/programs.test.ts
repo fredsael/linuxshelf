@@ -4,6 +4,9 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   ProgramValidationError,
+  firstReleaseDate,
+  latestRelease,
+  latestReleaseDate,
   loadPrograms,
 } from "../src/lib/programs";
 
@@ -165,5 +168,80 @@ homepage: https://example.com/typo
 
     expect(() => loadPrograms(dir)).toThrow(/bad\.yaml/);
     expect(() => loadPrograms(dir)).toThrow(/could not parse YAML/);
+  });
+});
+
+describe("releases", () => {
+  const withReleases = `name: Released
+slug: released
+category: Utilities
+description:
+  short: Short.
+  full: Full.
+homepage: https://example.com/released
+version: "1.9.0"
+latest_release: "2023-12-31"
+releases:
+  - version: "2.0.0"
+    date: "2024-06-01"
+  - version: "1.0.0"
+    date: "2022-01-01"
+`;
+
+  it("defaults to an empty list when absent", () => {
+    const dir = fixtureDir({ "other.yaml": otherProgram });
+    expect(loadPrograms(dir)[0].releases).toEqual([]);
+  });
+
+  it("sorts releases by date ascending on load", () => {
+    const dir = fixtureDir({ "released.yaml": withReleases });
+    const program = loadPrograms(dir)[0];
+
+    expect(program.releases.map((r) => r.version)).toEqual(["1.0.0", "2.0.0"]);
+    expect(latestRelease(program)).toEqual({ version: "2.0.0", date: "2024-06-01" });
+  });
+
+  it("derives release dates from the releases list when present", () => {
+    const dir = fixtureDir({ "released.yaml": withReleases });
+    const program = loadPrograms(dir)[0];
+
+    expect(firstReleaseDate(program)).toBe("2022-01-01");
+    expect(latestReleaseDate(program)).toBe("2024-06-01");
+  });
+
+  it("falls back to explicit fields when there are no releases", () => {
+    const dir = fixtureDir({
+      "other.yaml": otherProgram,
+      "plain.yaml": `name: Plain
+slug: plain
+category: Utilities
+description:
+  short: Short.
+  full: Full.
+homepage: https://example.com/plain
+version: "1.2.3"
+first_release: "2020-02-02"
+latest_release: "2024-06-01"
+`,
+    });
+    const program = loadPrograms(dir).find((p) => p.slug === "plain");
+
+    expect(firstReleaseDate(program!)).toBe("2020-02-02");
+    expect(latestReleaseDate(program!)).toBe("2024-06-01");
+  });
+
+  it("rejects a release with a non-ISO date or unknown key", () => {
+    const dir = fixtureDir({
+      "released.yaml": withReleases.replace("2024-06-01", "June 2024"),
+    });
+    expect(() => loadPrograms(dir)).toThrow(/releases\.0\.date/);
+
+    const typoDir = fixtureDir({
+      "released.yaml": withReleases.replace(
+        'version: "2.0.0"',
+        'version: "2.0.0"\n    notes: "surprise"'
+      ),
+    });
+    expect(() => loadPrograms(typoDir)).toThrow(/releases\.0/);
   });
 });

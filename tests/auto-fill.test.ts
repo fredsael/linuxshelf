@@ -4,10 +4,15 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   applyMissingFields,
+  applyReleases,
   extractMetadata,
+  extractReleases,
   fetchRepology,
   needsFill,
+  needsReleases,
+  parseGitHubRepo,
   runAutoFill,
+  type GitHubRelease,
   type RepologyPackage,
 } from "../scripts/auto-fill";
 import { loadPrograms } from "../src/lib/programs";
@@ -246,6 +251,257 @@ describe("fetchRepology", () => {
     }) as unknown as typeof fetch;
 
     await expect(fetchRepology("neovim", { fetchImpl: failing })).resolves.toBeNull();
+  });
+});
+
+describe("parseGitHubRepo", () => {
+  it("extracts owner/repo from plain, .git and trailing-slash URLs", () => {
+    expect(parseGitHubRepo("https://github.com/neovim/neovim")).toBe("neovim/neovim");
+    expect(parseGitHubRepo("https://github.com/neovim/neovim.git")).toBe("neovim/neovim");
+    expect(parseGitHubRepo("https://github.com/neovim/neovim/")).toBe("neovim/neovim");
+    expect(parseGitHubRepo("http://www.github.com/a/b/issues")).toBeUndefined();
+  });
+
+  it("returns undefined for non-GitHub or missing URLs", () => {
+    expect(parseGitHubRepo("https://gitlab.com/foo/bar")).toBeUndefined();
+    expect(parseGitHubRepo(undefined)).toBeUndefined();
+  });
+});
+
+describe("extractReleases", () => {
+  const release = (
+    tag: string,
+    published: string | null,
+    flags: Partial<GitHubRelease> = {}
+  ): GitHubRelease => ({
+    tag_name: tag,
+    published_at: published,
+    draft: false,
+    prerelease: false,
+    ...flags,
+  });
+
+  it("keeps stable releases sorted by date with v-prefix stripped", () => {
+    const entries = extractReleases([
+      release("v0.10.0", "2024-01-30T12:00:00Z"),
+      release("v0.11.0", "2025-02-01T12:00:00Z"),
+    ]);
+
+    expect(entries).toEqual([
+      { version: "0.10.0", date: "2024-01-30" },
+      { version: "0.11.0", date: "2025-02-01" },
+    ]);
+  });
+
+  it("drops drafts, prereleases and undated entries", () => {
+    const entries = extractReleases([
+      release("v1.0.0", "2024-01-01T00:00:00Z", { draft: true }),
+      release("v1.1.0", "2024-06-01T00:00:00Z", { prerelease: true }),
+      release("v1.2.0", null, { created_at: null }),
+      release("v1.3.0", "2024-08-01T00:00:00Z"),
+    ]);
+
+    expect(entries).toEqual([{ version: "1.3.0", date: "2024-08-01" }]);
+  });
+
+  it("deduplicates versions, keeping the earliest date", () => {
+    const entries = extractReleases([
+      release("v1.0.0", "2024-05-05T00:00:00Z"),
+      release("1.0.0", "2024-01-01T00:00:00Z"),
+    ]);
+
+    expect(entries).toEqual([{ version: "1.0.0", date: "2024-01-01" }]);
+  });
+
+  it("only strips a v-prefix when a digit follows, keeping tags like vim-9.0 intact", () => {
+    const entries = extractReleases([
+      release("v0.10.0", "2024-01-30T12:00:00Z"),
+      release("vim-9.0", "2024-06-01T12:00:00Z"),
+    ]);
+
+    expect(entries).toEqual([
+      { version: "0.10.0", date: "2024-01-30" },
+      { version: "vim-9.0", date: "2024-06-01" },
+    ]);
+  });
+});
+
+const routedFetch = (routes: [RegExp, unknown][]) =>
+  vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    const match = routes.find(([pattern]) => pattern.test(url));
+    if (!match) throw new Error(`unexpected fetch: ${url}`);
+    return {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: async () => match[1],
+    } as Response;
+  });
+
+const filledProgram = `name: Filled Program
+slug: filled-program
+category: Utilities
+description:
+  short: A fully filled program.
+  full: |
+    ## What is it?
+    Test fixture.
+license: MIT
+version: "2.0.0"
+latest_release: "2024-01-01"
+homepage: https://example.com/filled-program
+repository: https://github.com/example/filled-program
+packages:
+  apt: filled-program
+  dnf: filled-program
+  pacman: filled-program
+  zypper: filled-program
+related: []
+`;
+
+describe("GitHub releases in runAutoFill", () => {
+  const ghReleases = [
+    { tag_name: "v2.0.0", published_at: "2024-01-01T00:00:00Z", draft: false, prerelease: false },
+    { tag_name: "v2.1.0", published_at: "2024-06-01T00:00:00Z", draft: false, prerelease: true },
+    { tag_name: "v1.0.0", published_at: "2023-01-01T00:00:00Z", draft: false, prerelease: false },
+  ];
+
+  it("fills releases when the list is absent", async () => {
+    const dir = fixtureDir({ "filled-program.yaml": filledProgram });
+    const fetchImpl = routedFetch([[/^https:\/\/api\.github\.com\//, ghReleases]]);
+
+    const changed = await runAutoFill({
+      dir,
+      delayMs: 0,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(changed).toBe(1);
+    const program = loadPrograms(dir)[0];
+    expect(program.releases).toEqual([
+      { version: "1.0.0", date: "2023-01-01" },
+      { version: "2.0.0", date: "2024-01-01" },
+    ]);
+  });
+
+  it("writes release scalars quoted so a YAML 1.1 re-parse keeps them strings", async () => {
+    const dir = fixtureDir({ "filled-program.yaml": filledProgram });
+    const fetchImpl = routedFetch([
+      [
+        /^https:\/\/api\.github\.com\//,
+        [
+          { tag_name: "25.2", published_at: "2024-03-03T00:00:00Z", draft: false, prerelease: false },
+          { tag_name: "v3.0.0", published_at: "2024-01-01T00:00:00Z", draft: false, prerelease: false },
+        ],
+      ],
+    ]);
+
+    await runAutoFill({
+      dir,
+      delayMs: 0,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    const raw = readFileSync(join(dir, "filled-program.yaml"), "utf8");
+    expect(raw).toContain('version: "25.2"');
+    expect(raw).toContain('date: "2024-03-03"');
+    expect(loadPrograms(dir)[0].releases).toEqual([
+      { version: "3.0.0", date: "2024-01-01" },
+      { version: "25.2", date: "2024-03-03" },
+    ]);
+  });
+
+  it("leaves an existing curated list untouched without --force", async () => {
+    const dir = fixtureDir({
+      "filled-program.yaml": `${filledProgram}releases:
+  - version: "1.0.0"
+    date: "2023-01-01"
+`,
+    });
+    const fetchImpl = routedFetch([[/^https:\/\/api\.github\.com\//, ghReleases]]);
+
+    const changed = await runAutoFill({
+      dir,
+      delayMs: 0,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(changed).toBe(0);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(loadPrograms(dir)[0].releases).toEqual([
+      { version: "1.0.0", date: "2023-01-01" },
+    ]);
+  });
+
+  it("refreshes an existing list with --force", async () => {
+    const dir = fixtureDir({
+      "filled-program.yaml": `${filledProgram}releases:
+  - version: "0.9.0"
+    date: "2022-06-06"
+`,
+    });
+    const fetchImpl = routedFetch([[/^https:\/\/api\.github\.com\//, ghReleases]]);
+
+    const changed = await runAutoFill({
+      dir,
+      delayMs: 0,
+      force: true,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(changed).toBe(1);
+    expect(loadPrograms(dir)[0].releases).toHaveLength(2);
+  });
+
+  it("reports programs with no GitHub repository under --force", async () => {
+    const dir = fixtureDir({ "blank-program.yaml": blankProgram });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const changed = await runAutoFill({
+      dir,
+      delayMs: 0,
+      force: true,
+      fetchImpl: routedFetch([[/^https:\/\/repology\.org\//, repologyResponse]]) as unknown as typeof fetch,
+    });
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("no GitHub repository"));
+    expect(loadPrograms(dir)[0].releases).toEqual([]);
+    expect(changed).toBe(1);
+  });
+});
+
+describe("applyReleases", () => {
+  const entries = [
+    { version: "1.0.0", date: "2023-01-01" },
+    { version: "2.0.0", date: "2024-01-01" },
+  ];
+
+  it("returns the entries when the program has no releases list", () => {
+    expect(applyReleases({}, entries)).toEqual(entries);
+    expect(applyReleases({ releases: [] }, entries)).toEqual(entries);
+  });
+
+  it("refuses to overwrite an existing curated list without force", () => {
+    const data = { releases: [{ version: "0.9.0", date: "2022-06-06" }] };
+    expect(applyReleases(data, entries)).toBeNull();
+    expect(applyReleases(data, entries, true)).toEqual(entries);
+  });
+
+  it("returns null when there is nothing to fill", () => {
+    expect(applyReleases({}, [])).toBeNull();
+  });
+});
+
+describe("needsReleases", () => {
+  it("is true only for GitHub-backed programs without a releases list", () => {
+    expect(needsReleases({ repository: "https://github.com/a/b" })).toBe(true);
+    expect(needsReleases({ repository: "https://github.com/a/b", releases: [] })).toBe(true);
+    expect(
+      needsReleases({ repository: "https://github.com/a/b", releases: [{ version: "1", date: "2024-01-01" }] })
+    ).toBe(false);
+    expect(needsReleases({})).toBe(false);
+    expect(needsReleases({ repository: "https://gitlab.com/a/b" })).toBe(false);
   });
 });
 

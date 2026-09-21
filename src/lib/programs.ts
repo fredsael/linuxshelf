@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { load as parseYaml, YAMLException } from "js-yaml";
-import { programSchema, type Program } from "./schema";
+import { programSchema, type Program, type Release } from "./schema";
 
 export const contentDir = fileURLToPath(
   new URL("../../content/programs", import.meta.url)
@@ -40,6 +40,8 @@ function parseProgramFile(path: string): Program {
   }
 
   const program = result.data;
+  program.releases.sort((a, b) => a.date.localeCompare(b.date));
+
   const expectedFile = `${program.slug}.yaml`;
   if (fileName !== expectedFile) {
     throw new ProgramValidationError(
@@ -87,4 +89,29 @@ export function findProgram(
   slug: string
 ): Program | undefined {
   return programs.find((program) => program.slug === slug);
+}
+
+/**
+ * The newest Release of a program, or undefined when it has no releases list.
+ */
+export function latestRelease(program: Program): Release | undefined {
+  return program.releases.at(-1);
+}
+
+/**
+ * Date of the earliest Release, falling back to the explicit first_release
+ * field when the program has no releases list.
+ */
+export function firstReleaseDate(program: Program): string {
+  const first = program.releases[0];
+  return first ? first.date : program.first_release;
+}
+
+/**
+ * Date of the newest Release, falling back to the explicit latest_release
+ * field when the program has no releases list.
+ */
+export function latestReleaseDate(program: Program): string {
+  const latest = latestRelease(program);
+  return latest ? latest.date : program.latest_release;
 }

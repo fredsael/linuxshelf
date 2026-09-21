@@ -1,9 +1,10 @@
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { parseDocument } from "yaml";
+import { parseDocument, Scalar, YAMLMap, type Document } from "yaml";
 import { contentDir } from "../src/lib/programs";
 import type { DistroId } from "../src/lib/install";
+import type { Release } from "../src/lib/schema";
 
 export interface RepologyPackage {
   repo: string;
@@ -26,6 +27,15 @@ export interface ExtractedMetadata {
   license?: string;
   latest_release?: string;
   packages?: Partial<Record<DistroId, string>>;
+}
+
+export interface GitHubRelease {
+  tag_name: string;
+  name?: string | null;
+  draft?: boolean;
+  prerelease?: boolean;
+  published_at?: string | null;
+  created_at?: string | null;
 }
 
 const DISTRO_REPOS: Record<DistroId, (repo: string) => boolean> = {
@@ -184,33 +194,45 @@ export interface FetchOptions {
   timeoutMs?: number;
 }
 
-export async function fetchRepology(
-  project: string,
+const USER_AGENT = "linux-programs-explorer/1.0 (auto-fill script)";
+
+/** Fetch a JSON array, throwing on HTTP errors, timeouts or unexpected bodies. */
+async function fetchJsonArray(
+  url: string,
+  headers: Record<string, string>,
   { fetchImpl = fetch, timeoutMs = 15000 }: FetchOptions = {}
-): Promise<RepologyPackage[] | null> {
-  const url = `https://repology.org/api/v1/project/${encodeURIComponent(project)}`;
+): Promise<unknown[]> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetchImpl(url, {
-      signal: controller.signal,
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "linux-programs-explorer/1.0 (auto-fill script)",
-      },
-    });
+    const response = await fetchImpl(url, { signal: controller.signal, headers });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status} ${response.statusText}`);
     }
     const json = (await response.json()) as unknown;
     if (!Array.isArray(json)) throw new Error("unexpected response body");
+    return json;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function fetchRepology(
+  project: string,
+  options: FetchOptions = {}
+): Promise<RepologyPackage[] | null> {
+  const url = `https://repology.org/api/v1/project/${encodeURIComponent(project)}`;
+  try {
+    const json = await fetchJsonArray(
+      url,
+      { Accept: "application/json", "User-Agent": USER_AGENT },
+      options
+    );
     return json as RepologyPackage[];
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.warn(`  ! Repology lookup failed for "${project}": ${message}`);
     return null;
-  } finally {
-    clearTimeout(timer);
   }
 }
 
@@ -230,12 +252,116 @@ export function lookupNames(data: Record<string, unknown>): string[] {
   return names;
 }
 
+export function parseGitHubRepo(url: unknown): string | undefined {
+  if (typeof url !== "string") return undefined;
+  const match = /^https?:\/\/(?:www\.)?github\.com\/([^/]+)\/([^/#?]+?)(?:\.git)?\/?(?:[#?].*)?$/i
+    .exec(url.trim());
+  if (!match) return undefined;
+  return `${match[1]}/${match[2]}`;
+}
+
+/** Strip a v-prefix only when a digit follows, so tags like vim-9.0 survive. */
+export function normalizeReleaseVersion(tag: string): string {
+  return tag.trim().replace(/^v(?=\d)/i, "");
+}
+
+export function extractReleases(releases: GitHubRelease[]): Release[] {
+  const byVersion = new Map<string, Release>();
+  for (const release of releases) {
+    if (release.draft || release.prerelease) continue;
+    const version = normalizeReleaseVersion(release.tag_name ?? "");
+    const date = (release.published_at ?? release.created_at ?? "").slice(0, 10);
+    if (!version || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    const existing = byVersion.get(version);
+    if (!existing || date < existing.date) byVersion.set(version, { version, date });
+  }
+  return [...byVersion.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+const GITHUB_PER_PAGE = 100;
+const GITHUB_MAX_PAGES = 10;
+
+export async function fetchGitHubReleases(
+  repo: string,
+  options: FetchOptions = {}
+): Promise<GitHubRelease[] | null> {
+  const headers = {
+    Accept: "application/vnd.github+json",
+    "User-Agent": USER_AGENT,
+    ...(process.env.GITHUB_TOKEN
+      ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
+      : {}),
+  };
+  try {
+    const all: GitHubRelease[] = [];
+    for (let page = 1; page <= GITHUB_MAX_PAGES; page += 1) {
+      const url = `https://api.github.com/repos/${repo}/releases?per_page=${GITHUB_PER_PAGE}&page=${page}`;
+      const json = await fetchJsonArray(url, headers, options);
+      all.push(...(json as GitHubRelease[]));
+      if (json.length < GITHUB_PER_PAGE) break;
+    }
+    return all;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`  ! GitHub release lookup failed for "${repo}": ${message}`);
+    return null;
+  }
+}
+
+export function needsReleases(data: Record<string, unknown>): boolean {
+  const repo = parseGitHubRepo(data.repository);
+  if (!repo) return false;
+  return !Array.isArray(data.releases) || data.releases.length === 0;
+}
+
+export function applyReleases(
+  data: Record<string, unknown>,
+  entries: Release[],
+  force = false
+): Release[] | null {
+  if (entries.length === 0) return null;
+  const existing = Array.isArray(data.releases) ? (data.releases as unknown[]) : [];
+  if (existing.length > 0 && !force) return null;
+  return entries;
+}
+
+const DATE_LIKE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * js-yaml follows YAML 1.1 and parses bare YYYY-MM-DD scalars as Date
+ * objects, so any string that could be misread on re-parse is quoted.
+ */
+function quotedString(value: unknown): Scalar {
+  const node = new Scalar(typeof value === "string" ? value : String(value));
+  node.type = "QUOTE_DOUBLE";
+  return node;
+}
+
+function setQuotedField(doc: Document, path: string[], value: unknown): void {
+  const needsQuotes = typeof value === "string" && (DATE_LIKE.test(value) || Number.isFinite(Number(value)));
+  doc.setIn(path, needsQuotes ? quotedString(value) : value);
+}
+
+function setQuotedReleases(doc: Document, releases: Release[]): void {
+  const node = doc.createNode(releases);
+  if (node instanceof YAMLMap) throw new Error("expected a sequence node");
+  for (const entry of node.items) {
+    if (entry instanceof YAMLMap) {
+      for (const pair of entry.items) {
+        if (pair.value instanceof Scalar) pair.value.type = "QUOTE_DOUBLE";
+      }
+    }
+  }
+  doc.setIn(["releases"], node);
+}
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 interface RunOptions {
   dir?: string;
   only?: string;
   dryRun?: boolean;
+  force?: boolean;
   fetchImpl?: typeof fetch;
   delayMs?: number;
 }
@@ -244,6 +370,7 @@ export async function runAutoFill({
   dir = contentDir,
   only,
   dryRun = false,
+  force = false,
   fetchImpl,
   delayMs = 1000,
 }: RunOptions = {}): Promise<number> {
@@ -265,52 +392,77 @@ export async function runAutoFill({
       continue;
     }
 
-    if (!needsFill(data)) {
+    const repo = parseGitHubRepo(data.repository);
+    const wantsReleases = repo !== undefined && (force || needsReleases(data));
+
+    if (!needsFill(data) && !wantsReleases) {
       console.log(`  = ${file}: nothing to fill`);
       continue;
     }
 
-    let metadata: ExtractedMetadata | null = null;
-    for (const project of lookupNames(data)) {
-      if (lookupCount > 0) await sleep(delayMs);
-      lookupCount += 1;
-      console.log(`  → ${file}: querying Repology for "${project}"`);
-      const response = await fetchRepology(project, { fetchImpl });
-      if (response) {
-        metadata = extractMetadata(response);
-        break;
+    const fields: string[] = [];
+
+    if (needsFill(data)) {
+      let metadata: ExtractedMetadata | null = null;
+      for (const project of lookupNames(data)) {
+        if (lookupCount > 0) await sleep(delayMs);
+        lookupCount += 1;
+        console.log(`  → ${file}: querying Repology for "${project}"`);
+        const response = await fetchRepology(project, { fetchImpl });
+        if (response) {
+          metadata = extractMetadata(response);
+          break;
+        }
+      }
+
+      if (metadata) {
+        const applied = applyMissingFields(data, metadata);
+        for (const field of applied.fields) {
+          const value = field.split(".").reduce<unknown>(
+            (acc, key) =>
+              acc && typeof acc === "object"
+                ? (acc as Record<string, unknown>)[key]
+                : undefined,
+            applied.data
+          );
+          if (!dryRun) setQuotedField(doc, field.split("."), value);
+        }
+        fields.push(...applied.fields);
+      } else {
+        console.warn(`  ! ${file}: no usable Repology data`);
       }
     }
 
-    if (!metadata) {
-      console.warn(`  ! ${file}: no usable Repology data, leaving unchanged`);
-      continue;
+    if (wantsReleases) {
+      if (lookupCount > 0) await sleep(delayMs);
+      lookupCount += 1;
+      console.log(`  → ${file}: querying GitHub for "${repo}"`);
+      const githubReleases = await fetchGitHubReleases(repo!, { fetchImpl });
+      const entries = githubReleases ? extractReleases(githubReleases) : [];
+      const nextReleases = applyReleases(data, entries, force);
+      if (nextReleases) {
+        if (!dryRun) setQuotedReleases(doc, nextReleases);
+        fields.push("releases");
+      } else if (entries.length === 0) {
+        console.warn(`  ! ${file}: no usable GitHub release data`);
+      }
+    } else if (force && repo === undefined) {
+      console.warn(`  ! ${file}: no GitHub repository, cannot fill releases`);
     }
 
-    const { data: next, changed, fields } = applyMissingFields(data, metadata);
-    if (!changed) continue;
+    if (fields.length === 0) continue;
 
     if (dryRun) {
       console.log(`  + ${file}: would fill ${fields.join(", ")} (dry run)`);
     } else {
-      for (const field of fields) {
-        const value = field.split(".").reduce<unknown>(
-          (acc, key) =>
-            acc && typeof acc === "object"
-              ? (acc as Record<string, unknown>)[key]
-              : undefined,
-          next
-        );
-        doc.setIn(field.split("."), value);
-      }
-      writeFileSync(path, doc.toString());
+      writeFileSync(path, doc.toString({ lineWidth: 0 }));
       console.log(`  + ${file}: filled ${fields.join(", ")}`);
     }
     changedCount += 1;
   }
 
   console.log(
-    `\n${changedCount} file(s) ${dryRun ? "to update" : "updated"}, ${lookupCount} Repology lookup(s).`
+    `\n${changedCount} file(s) ${dryRun ? "to update" : "updated"}, ${lookupCount} lookup(s).`
   );
   return changedCount;
 }
@@ -328,8 +480,17 @@ const isDirectRun = (): boolean => {
 if (isDirectRun()) {
   const args = process.argv.slice(2);
   const dryRun = args.includes("--dry-run");
+  const force = args.includes("--force");
+  const all = args.includes("--all");
   const projectIndex = args.indexOf("--project");
   const only = projectIndex >= 0 ? args[projectIndex + 1] : undefined;
 
-  await runAutoFill({ dryRun, only });
+  if (force && !only && !all) {
+    console.error(
+      "`--force` overwrites curated release lists; pass `--project <slug>` to refresh one program, or `--all` to refresh every program."
+    );
+    process.exit(1);
+  }
+
+  await runAutoFill({ dryRun, force, only });
 }

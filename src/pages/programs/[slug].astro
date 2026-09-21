@@ -4,9 +4,10 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import InstallTabs from "../../components/InstallTabs.astro";
 import ProgramCard from "../../components/ProgramCard.astro";
 import ProgramIcon from "../../components/ProgramIcon.astro";
-import { loadPrograms, findProgram } from "../../lib/programs";
+import ReleaseTimeline from "../../components/ReleaseTimeline.astro";
+import { loadPrograms, findProgram, firstReleaseDate, latestReleaseDate } from "../../lib/programs";
 import { slugify } from "../../lib/categories";
-import { formatDate } from "../../lib/format";
+import { formatDate, orDash } from "../../lib/format";
 
 export function getStaticPaths() {
   return loadPrograms().map((program) => ({
@@ -22,7 +23,7 @@ const related = program.related
   .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
 const descriptionHtml = await marked.parse(program.description.full);
-const version = program.version.trim() || "—";
+const version = orDash(program.version);
 const categorySlug = slugify(program.category);
 ---
 
@@ -61,15 +62,15 @@ const categorySlug = slugify(program.category);
         </div>
         <div>
           <dt>First release</dt>
-          <dd>{formatDate(program.first_release)}</dd>
+          <dd>{formatDate(firstReleaseDate(program))}</dd>
         </div>
         <div>
           <dt>Latest release</dt>
-          <dd>{formatDate(program.latest_release)}</dd>
+          <dd>{formatDate(latestReleaseDate(program))}</dd>
         </div>
         <div>
           <dt>License</dt>
-          <dd>{program.license.trim() || "—"}</dd>
+          <dd>{orDash(program.license)}</dd>
         </div>
       </dl>
 
@@ -104,6 +105,8 @@ const categorySlug = slugify(program.category);
     </div>
 
     <section class="description prose" set:html={descriptionHtml} />
+
+    <ReleaseTimeline program={program} />
 
     {
       related.length > 0 && (
