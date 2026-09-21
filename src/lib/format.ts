@@ -1,3 +1,8 @@
+export function orDash(value: string): string {
+  const trimmed = value.trim();
+  return trimmed === "" ? "—" : trimmed;
+}
+
 export function formatDate(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) return "—";

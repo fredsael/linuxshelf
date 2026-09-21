@@ -1,5 +1,6 @@
 ---
 import type { Program } from "../lib/schema";
+import { orDash } from "../lib/format";
 import ProgramIcon from "./ProgramIcon.astro";
 
 interface Props {
@@ -7,8 +8,8 @@ interface Props {
 }
 
 const { program } = Astro.props;
-const version = program.version.trim() || "—";
-const license = program.license.trim() || "—";
+const version = orDash(program.version);
+const license = orDash(program.license);
 ---
 
 <a class="program-card" href={`/programs/${program.slug}`}>
