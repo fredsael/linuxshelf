@@ -1,0 +1,7 @@
+# statichost.eu build configuration — https://www.statichost.eu/docs/build-config/
+# Docker image to use for building (version-pinned per statichost recommendation)
+image: node:22.23.2
+# Build command, run with /bin/sh from the repository root
+command: npm ci && npm run build
+# Directory containing the generated static site, relative to the repository root
+public: dist
