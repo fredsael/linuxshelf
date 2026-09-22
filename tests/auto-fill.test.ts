@@ -8,6 +8,7 @@ import {
   extractMetadata,
   extractReleases,
   fetchRepology,
+  fetchGitHubStars,
   needsFill,
   needsReleases,
   parseGitHubRepo,
@@ -468,6 +469,148 @@ describe("GitHub releases in runAutoFill", () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("no GitHub repository"));
     expect(loadPrograms(dir)[0].releases).toEqual([]);
     expect(changed).toBe(1);
+  });
+});
+
+describe("fetchGitHubStars", () => {
+  it("reads stargazers_count from the repository endpoint", async () => {
+    const fetchImpl = routedFetch([
+      [
+        /^https:\/\/api\.github\.com\/repos\/example\/filled-program$/,
+        { stargazers_count: 46123 },
+      ],
+    ]);
+
+    const stars = await fetchGitHubStars("example/filled-program", {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(stars).toBe(46123);
+  });
+
+  it("returns null when the request fails", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const failing = (async () => {
+      throw new Error("network down");
+    }) as unknown as typeof fetch;
+
+    await expect(
+      fetchGitHubStars("example/filled-program", { fetchImpl: failing })
+    ).resolves.toBeNull();
+  });
+
+  it("returns null when the response carries no star count", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchImpl = routedFetch([[
+      /^https:\/\/api\.github\.com\/repos\//,
+      { message: "Not Found" },
+    ]]);
+
+    await expect(
+      fetchGitHubStars("example/gone", {
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      })
+    ).resolves.toBeNull();
+  });
+});
+
+describe("--stars in runAutoFill", () => {
+  const starsRoute: [RegExp, unknown] = [
+    /^https:\/\/api\.github\.com\/repos\/example\/filled-program$/,
+    { stargazers_count: 46123 },
+  ];
+
+  it("fills the star count when absent", async () => {
+    const dir = fixtureDir({ "filled-program.yaml": filledProgram });
+    const fetchImpl = routedFetch([starsRoute]);
+
+    const changed = await runAutoFill({
+      dir,
+      delayMs: 0,
+      stars: true,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(changed).toBe(1);
+    expect(loadPrograms(dir)[0].stars).toBe(46123);
+  });
+
+  it("overwrites an existing, stale star count", async () => {
+    const dir = fixtureDir({
+      "filled-program.yaml": `${filledProgram}stars: 999\n`,
+    });
+    const fetchImpl = routedFetch([starsRoute]);
+
+    const changed = await runAutoFill({
+      dir,
+      delayMs: 0,
+      stars: true,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(changed).toBe(1);
+    expect(loadPrograms(dir)[0].stars).toBe(46123);
+  });
+
+  it("never touches stars without the --stars flag", async () => {
+    const dir = fixtureDir({
+      "filled-program.yaml": `${filledProgram}stars: 999\n`,
+    });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchImpl = routedFetch([starsRoute]);
+
+    await runAutoFill({
+      dir,
+      delayMs: 0,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    const urls = fetchImpl.mock.calls.map(([input]) => String(input));
+    expect(urls.some((url) => /\/repos\/example\/filled-program$/.test(url))).toBe(false);
+    expect(loadPrograms(dir)[0].stars).toBe(999);
+  });
+
+  it("skips programs whose repository is not on GitHub", async () => {
+    const dir = fixtureDir({
+      "filled-program.yaml": filledProgram.replace(
+        "https://github.com/example/filled-program",
+        "https://gitlab.com/example/filled-program"
+      ),
+    });
+    const fetchImpl = routedFetch([]);
+
+    const changed = await runAutoFill({
+      dir,
+      delayMs: 0,
+      stars: true,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(changed).toBe(0);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(loadPrograms(dir)[0].stars).toBeUndefined();
+  });
+
+  it("clears a star count when the catalogued repository is no longer on GitHub", async () => {
+    const dir = fixtureDir({
+      "filled-program.yaml": `${filledProgram
+        .replace(
+          "https://github.com/example/filled-program",
+          "https://gitlab.com/example/filled-program"
+        )
+        .trimEnd()}\nstars: 999\n`,
+    });
+    const fetchImpl = routedFetch([]);
+
+    const changed = await runAutoFill({
+      dir,
+      delayMs: 0,
+      stars: true,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(changed).toBe(1);
+    expect(loadPrograms(dir)[0].stars).toBeUndefined();
   });
 });
 

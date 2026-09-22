@@ -75,6 +75,12 @@ the file back only if something changed. API failures are logged and
 skipped, never fatal. The GitHub Action in
 `.github/workflows/auto-fill.yml` runs it weekly and opens a pull request.
 
+`npm run auto-fill -- --stars` additionally refreshes each program's
+`stars:` count from its catalogued GitHub repository. Unlike curated
+fields, an existing count is always overwritten, and a count left behind
+when a repository moves off GitHub is cleared
+(see `docs/adr/0002-committed-star-counts.md`).
+
 Repology does not expose release dates, so `latest_release` is only filled
 when the API response happens to include one; it usually needs a manual
 edit or a future upstream source.
