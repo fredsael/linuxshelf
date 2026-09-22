@@ -166,4 +166,6 @@ releases:
     date: "2026-07-05"
   - version: "0.12.5"
     date: "2026-08-23"
+  - version: "stable"
+    date: "2026-08-23"
 stars: 102505
