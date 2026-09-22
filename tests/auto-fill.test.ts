@@ -554,6 +554,20 @@ describe("fetchReleaseHistory incremental refresh", () => {
 
     expect(history).toEqual(stored);
   });
+  it("stops enumerating tag pages once the cap is exceeded", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fullPage = Array.from({ length: 100 }, (_, i) => ({ name: `v9.1.${i}` }));
+    const fetchImpl = routedFetch([[/\/releases\?/, []], [/\/tags\?/, fullPage]]);
+
+    const history = await fetchReleaseHistory("a/b", [], {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(history).toBeNull();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("skip_releases"));
+    const tagPages = fetchImpl.mock.calls.filter(([url]) => /\/tags\?/.test(String(url))).length;
+    expect(tagPages).toBeLessThanOrEqual(3);
+  });
 });
 
 const filledProgram = `name: Filled Program
@@ -694,6 +708,42 @@ describe("GitHub releases in runAutoFill", () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("malformed"));
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(readFileSync(join(dir, "filled-program.yaml"), "utf8")).toBe(before);
+  });
+
+  it("does not query GitHub for a program that opts out with skip_releases", async () => {
+    const dir = fixtureDir({
+      "filled-program.yaml": `${filledProgram}skip_releases: true\n`,
+    });
+    const fetchImpl = routedFetch([[/^https:\/\/api\.github\.com\//, ghReleases]]);
+
+    const changed = await runAutoFill({
+      dir,
+      delayMs: 0,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(changed).toBe(0);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(loadPrograms(dir)[0].releases).toEqual([]);
+  });
+
+  it("reports the opt-out when forced", async () => {
+    const dir = fixtureDir({
+      "filled-program.yaml": `${filledProgram}skip_releases: true\n`,
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchImpl = routedFetch([[/^https:\/\/api\.github\.com\//, ghReleases]]);
+
+    const changed = await runAutoFill({
+      dir,
+      delayMs: 0,
+      force: true,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(changed).toBe(0);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("skip_releases"));
   });
 
   it("backfills a tag-only repo by resolving tag dates", async () => {

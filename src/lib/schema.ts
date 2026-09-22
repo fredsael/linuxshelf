@@ -28,6 +28,7 @@ export const programSchema = z
     first_release: z.string().default(""),
     latest_release: z.string().default(""),
     releases: z.array(releaseSchema).default([]),
+    skip_releases: z.boolean().default(false),
     homepage: z.string().url("homepage must be a valid URL"),
     repository: z.string().url("repository must be a valid URL").optional(),
     stars: z

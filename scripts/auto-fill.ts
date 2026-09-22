@@ -322,17 +322,26 @@ export async function fetchGitHubStars(
   }
 }
 
+/** Thrown when a paginated endpoint passes the point where paging pays off. */
+class TooManyResultsError extends Error {
+  constructor(public readonly count: number) {
+    super(`more than ${count} results`);
+  }
+}
+
 /** Fetch a paginated GitHub array endpoint, newest items first, up to maxPages. Throws on failure. */
 async function fetchGitHubPages<T>(
   url: (page: number) => string,
   maxPages: number,
-  options: FetchOptions = {}
+  options: FetchOptions = {},
+  limit?: number
 ): Promise<T[]> {
   const headers = githubHeaders();
   const all: T[] = [];
   for (let page = 1; page <= maxPages; page += 1) {
     const json = await fetchJsonArray(url(page), headers, options);
     all.push(...(json as T[]));
+    if (limit !== undefined && all.length > limit) throw new TooManyResultsError(all.length);
     if (json.length < GITHUB_PER_PAGE) break;
   }
   return all;
@@ -375,7 +384,8 @@ async function fetchGitHubTagNames(
   const tags = await fetchGitHubPages<GitHubTag>(
     (page) => `https://api.github.com/repos/${repo}/tags?per_page=${GITHUB_PER_PAGE}&page=${page}`,
     maxPages,
-    options
+    options,
+    MAX_TAG_DATES
   );
   return tags.map((tag) => tag.name);
 }
@@ -466,12 +476,6 @@ export async function fetchReleaseHistory(
   try {
     const tagNames = (await fetchGitHubTagNames(repo, options, maxPages)).filter(isVersionLike);
     const pending = incremental ? unknownTags(stored, tagNames) : tagNames;
-    if (pending.length > MAX_TAG_DATES) {
-      console.warn(
-        `  ! GitHub tag lookup for "${repo}": too many tags (${pending.length}) to resolve in one run, skipping`
-      );
-      return null;
-    }
     const records: GitHubRelease[] = [];
     for (const name of pending) {
       records.push({ tag_name: name, published_at: await fetchTagDate(repo, name, options) });
@@ -480,6 +484,13 @@ export async function fetchReleaseHistory(
     if (!incremental) return tagEntries.length > 0 ? tagEntries : null;
     return mergeHistories(stored, tagEntries);
   } catch (error) {
+    if (error instanceof TooManyResultsError) {
+      console.warn(
+        `  ! GitHub tag lookup for "${repo}": too many tags (${error.count}+) to resolve in one run, skipping; ` +
+          "set skip_releases: true in the program YAML if this program should have no release history"
+      );
+      return null;
+    }
     const message = error instanceof Error ? error.message : String(error);
     console.warn(`  ! GitHub tag lookup failed for "${repo}": ${message}`);
     return null;
@@ -584,11 +595,12 @@ export async function runAutoFill({
     }
 
     const repo = parseGitHubRepo(data.repository);
-    const wantsReleases = repo !== undefined;
+    const optedOut = data.skip_releases === true;
+    const wantsReleases = repo !== undefined && !optedOut;
     const wantsStars = stars && repo !== undefined;
     const wantsStarsClear = stars && repo === undefined && data.stars !== undefined;
 
-    if (!needsFill(data) && !wantsReleases && !wantsStars && !wantsStarsClear) {
+    if (!needsFill(data) && !wantsReleases && !wantsStars && !wantsStarsClear && !force) {
       console.log(`  = ${file}: nothing to fill`);
       continue;
     }
@@ -642,8 +654,14 @@ export async function runAutoFill({
           fields.push("releases");
         }
       }
-    } else if (force && repo === undefined) {
-      console.warn(`  ! ${file}: no GitHub repository, cannot fill releases`);
+    } else if (force) {
+      if (repo === undefined) {
+        console.warn(`  ! ${file}: no GitHub repository, cannot fill releases`);
+      } else if (optedOut) {
+        console.warn(
+          `  ! ${file}: skip_releases is set, no refresh to force; remove the flag to re-enable it`
+        );
+      }
     }
 
     if (wantsStars) {
