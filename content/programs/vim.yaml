@@ -48,6 +48,7 @@ first_release: "1991-11-02"
 latest_release: "2026-02-01"
 homepage: https://www.vim.org
 repository: https://github.com/vim/vim
+skip_releases: true
 icon: "💚"
 packages:
   apt: vim

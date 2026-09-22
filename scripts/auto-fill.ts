@@ -280,7 +280,7 @@ export function extractReleases(releases: GitHubRelease[]): Release[] {
     if (release.draft || release.prerelease) continue;
     const version = normalizeReleaseVersion(release.tag_name ?? "");
     const date = (release.published_at ?? release.created_at ?? "").slice(0, 10);
-    if (!version || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    if (!version || !/\d/.test(version) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
     const existing = byVersion.get(version);
     if (!existing || date < existing.date) byVersion.set(version, { version, date });
   }
@@ -322,20 +322,42 @@ export async function fetchGitHubStars(
   }
 }
 
-export async function fetchGitHubReleases(
-  repo: string,
-  options: FetchOptions = {}
-): Promise<GitHubRelease[] | null> {
+/** Thrown when a paginated endpoint passes the point where paging pays off. */
+class TooManyResultsError extends Error {
+  constructor(public readonly count: number) {
+    super(`more than ${count} results`);
+  }
+}
+
+/** Fetch a paginated GitHub array endpoint, newest items first, up to maxPages. Throws on failure. */
+async function fetchGitHubPages<T>(
+  url: (page: number) => string,
+  maxPages: number,
+  options: FetchOptions = {},
+  limit?: number
+): Promise<T[]> {
   const headers = githubHeaders();
+  const all: T[] = [];
+  for (let page = 1; page <= maxPages; page += 1) {
+    const json = await fetchJsonArray(url(page), headers, options);
+    all.push(...(json as T[]));
+    if (limit !== undefined && all.length > limit) throw new TooManyResultsError(all.length);
+    if (json.length < GITHUB_PER_PAGE) break;
+  }
+  return all;
+}
+
+async function fetchGitHubReleases(
+  repo: string,
+  options: FetchOptions = {},
+  maxPages = GITHUB_MAX_PAGES
+): Promise<GitHubRelease[] | null> {
   try {
-    const all: GitHubRelease[] = [];
-    for (let page = 1; page <= GITHUB_MAX_PAGES; page += 1) {
-      const url = `https://api.github.com/repos/${repo}/releases?per_page=${GITHUB_PER_PAGE}&page=${page}`;
-      const json = await fetchJsonArray(url, headers, options);
-      all.push(...(json as GitHubRelease[]));
-      if (json.length < GITHUB_PER_PAGE) break;
-    }
-    return all;
+    return await fetchGitHubPages<GitHubRelease>(
+      (page) => `https://api.github.com/repos/${repo}/releases?per_page=${GITHUB_PER_PAGE}&page=${page}`,
+      maxPages,
+      options
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.warn(`  ! GitHub release lookup failed for "${repo}": ${message}`);
@@ -343,21 +365,164 @@ export async function fetchGitHubReleases(
   }
 }
 
-export function needsReleases(data: Record<string, unknown>): boolean {
-  const repo = parseGitHubRepo(data.repository);
-  if (!repo) return false;
-  return !Array.isArray(data.releases) || data.releases.length === 0;
+interface GitHubTag {
+  name: string;
 }
 
-export function applyReleases(
-  data: Record<string, unknown>,
-  entries: Release[],
-  force = false
-): Release[] | null {
-  if (entries.length === 0) return null;
-  const existing = Array.isArray(data.releases) ? (data.releases as unknown[]) : [];
-  if (existing.length > 0 && !force) return null;
-  return entries;
+interface GitHubCommit {
+  commit?: {
+    committer?: { date?: string };
+    author?: { date?: string };
+  };
+}
+
+async function fetchGitHubTagNames(
+  repo: string,
+  options: FetchOptions = {},
+  maxPages = GITHUB_MAX_PAGES
+): Promise<string[]> {
+  const tags = await fetchGitHubPages<GitHubTag>(
+    (page) => `https://api.github.com/repos/${repo}/tags?per_page=${GITHUB_PER_PAGE}&page=${page}`,
+    maxPages,
+    options,
+    MAX_TAG_DATES
+  );
+  return tags.map((tag) => tag.name);
+}
+
+/** Tags carry no date of their own, so resolve the tagged commit. Throws on failure. */
+async function fetchTagDate(repo: string, tag: string, options: FetchOptions = {}): Promise<string> {
+  const url = `https://api.github.com/repos/${repo}/commits/${encodeURIComponent(tag)}`;
+  const json = (await fetchJson(url, githubHeaders(), options)) as GitHubCommit;
+  const date = json?.commit?.committer?.date ?? json?.commit?.author?.date;
+  if (!date) throw new Error(`no date for tag "${tag}"`);
+  return date;
+}
+
+/** Reshape a stored Release as an API record so extractReleases can dedupe and sort it. */
+const asGitHubRelease = (release: Release): GitHubRelease => ({
+  tag_name: release.version,
+  published_at: `${release.date}T00:00:00Z`,
+});
+
+/**
+ * Append genuinely new versions to the stored list. Stored entries always win:
+ * a fetched version already stored is dropped, and a refresh that finds nothing
+ * new returns `stored` untouched, in its original order.
+ */
+function mergeHistories(stored: Release[], fetched: Release[]): Release[] {
+  const storedVersions = new Set(stored.map((release) => normalizeReleaseVersion(release.version)));
+  const fresh = fetched.filter((release) => !storedVersions.has(normalizeReleaseVersion(release.version)));
+  if (fresh.length === 0) return stored;
+  return extractReleases([...stored.map(asGitHubRelease), ...fresh.map(asGitHubRelease)]);
+}
+
+const KNOWN_STOP_MARGIN = 3;
+
+/**
+ * Repositories that tag every patch commit (vim: 6000+ tags) would blow the
+ * rate limit and render a useless timeline; they get curated `releases` lists
+ * instead.
+ */
+const MAX_TAG_DATES = 250;
+
+/** Tags like "latest" or "nightly-build" are not versions and get no timeline point. */
+const isVersionLike = (tag: string): boolean => /^\d/.test(normalizeReleaseVersion(tag));
+
+/**
+ * GitHub lists tags newest-first, but releases can be backported to old
+ * branches, so keep scanning past the first known tag until several known
+ * tags follow in a row.
+ */
+function unknownTags(stored: Release[], tagNames: string[]): string[] {
+  const known = new Set(stored.map((release) => release.version));
+  const fresh: string[] = [];
+  let consecutiveKnown = 0;
+  for (const name of tagNames) {
+    if (known.has(normalizeReleaseVersion(name))) {
+      consecutiveKnown += 1;
+      if (consecutiveKnown >= KNOWN_STOP_MARGIN) break;
+    } else {
+      consecutiveKnown = 0;
+      fresh.push(name);
+    }
+  }
+  return fresh;
+}
+
+/**
+ * The release history for a GitHub-backed program: formal Releases when the
+ * repository publishes them, otherwise plain git Tags resolved to dates via
+ * their tagged commits. With a non-empty `stored` list it only fetches the
+ * newest page and resolves dates for versions not stored yet, merging the
+ * result with `stored`. Returns null when the history could not be fetched
+ * completely — callers keep whatever they already have. A full tag backfill
+ * costs one request per tag, so prefer running with GITHUB_TOKEN set.
+ */
+export async function fetchReleaseHistory(
+  repo: string,
+  stored: Release[],
+  options: FetchOptions & { force?: boolean } = {}
+): Promise<Release[] | null> {
+  const incremental = !options.force && stored.length > 0;
+  const maxPages = incremental ? 1 : GITHUB_MAX_PAGES;
+  const githubReleases = await fetchGitHubReleases(repo, options, maxPages);
+  if (githubReleases === null) return null;
+  const fetched = extractReleases(githubReleases);
+  if (fetched.length > 0) {
+    return incremental ? mergeHistories(stored, fetched) : fetched;
+  }
+
+  try {
+    const tagNames = (await fetchGitHubTagNames(repo, options, maxPages)).filter(isVersionLike);
+    const pending = incremental ? unknownTags(stored, tagNames) : tagNames;
+    const records: GitHubRelease[] = [];
+    for (const name of pending) {
+      records.push({ tag_name: name, published_at: await fetchTagDate(repo, name, options) });
+    }
+    const tagEntries = extractReleases(records);
+    if (!incremental) return tagEntries.length > 0 ? tagEntries : null;
+    return mergeHistories(stored, tagEntries);
+  } catch (error) {
+    if (error instanceof TooManyResultsError) {
+      console.warn(
+        `  ! GitHub tag lookup for "${repo}": too many tags (${error.count}+) to resolve in one run, skipping; ` +
+          "set skip_releases: true in the program YAML if this program should have no release history"
+      );
+      return null;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`  ! GitHub tag lookup failed for "${repo}": ${message}`);
+    return null;
+  }
+}
+
+/**
+ * Well-formed releases already stored in the program YAML, or null when the
+ * list exists but holds entries this script cannot represent — such files are
+ * left entirely alone rather than silently rewritten without those entries.
+ */
+function storedReleases(data: Record<string, unknown>): Release[] | null {
+  if (!Array.isArray(data.releases)) return [];
+  const valid = data.releases.flatMap((entry) => {
+    const release = entry as Partial<Release> | null;
+    if (
+      typeof release?.version === "string" &&
+      typeof release?.date === "string" &&
+      DATE_LIKE.test(release.date)
+    ) {
+      return [{ version: release.version, date: release.date }];
+    }
+    return [];
+  });
+  return valid.length === data.releases.length ? valid : null;
+}
+
+function sameReleases(a: Release[], b: Release[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((entry, index) => entry.version === b[index].version && entry.date === b[index].date)
+  );
 }
 
 const DATE_LIKE = /^\d{4}-\d{2}-\d{2}$/;
@@ -430,11 +595,12 @@ export async function runAutoFill({
     }
 
     const repo = parseGitHubRepo(data.repository);
-    const wantsReleases = repo !== undefined && (force || needsReleases(data));
+    const optedOut = data.skip_releases === true;
+    const wantsReleases = repo !== undefined && !optedOut;
     const wantsStars = stars && repo !== undefined;
     const wantsStarsClear = stars && repo === undefined && data.stars !== undefined;
 
-    if (!needsFill(data) && !wantsReleases && !wantsStars && !wantsStarsClear) {
+    if (!needsFill(data) && !wantsReleases && !wantsStars && !wantsStarsClear && !force) {
       console.log(`  = ${file}: nothing to fill`);
       continue;
     }
@@ -476,17 +642,26 @@ export async function runAutoFill({
       if (lookupCount > 0) await sleep(delayMs);
       lookupCount += 1;
       console.log(`  → ${file}: querying GitHub for "${repo}"`);
-      const githubReleases = await fetchGitHubReleases(repo!, { fetchImpl });
-      const entries = githubReleases ? extractReleases(githubReleases) : [];
-      const nextReleases = applyReleases(data, entries, force);
-      if (nextReleases) {
-        if (!dryRun) setQuotedReleases(doc, nextReleases);
-        fields.push("releases");
-      } else if (entries.length === 0) {
-        console.warn(`  ! ${file}: no usable GitHub release data`);
+      const stored = storedReleases(data);
+      if (stored === null) {
+        console.warn(`  ! ${file}: releases list is malformed, leaving it untouched`);
+      } else {
+        const next = await fetchReleaseHistory(repo!, stored, { force, fetchImpl });
+        if (next === null) {
+          console.warn(`  ! ${file}: no usable GitHub release data`);
+        } else if (!sameReleases(stored, next)) {
+          if (!dryRun) setQuotedReleases(doc, next);
+          fields.push("releases");
+        }
       }
-    } else if (force && repo === undefined) {
-      console.warn(`  ! ${file}: no GitHub repository, cannot fill releases`);
+    } else if (force) {
+      if (repo === undefined) {
+        console.warn(`  ! ${file}: no GitHub repository, cannot fill releases`);
+      } else if (optedOut) {
+        console.warn(
+          `  ! ${file}: skip_releases is set, no refresh to force; remove the flag to re-enable it`
+        );
+      }
     }
 
     if (wantsStars) {

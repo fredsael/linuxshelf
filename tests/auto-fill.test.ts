@@ -4,13 +4,12 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   applyMissingFields,
-  applyReleases,
   extractMetadata,
   extractReleases,
   fetchRepology,
   fetchGitHubStars,
+  fetchReleaseHistory,
   needsFill,
-  needsReleases,
   parseGitHubRepo,
   runAutoFill,
   type GitHubRelease,
@@ -325,6 +324,15 @@ describe("extractReleases", () => {
       { version: "vim-9.0", date: "2024-06-01" },
     ]);
   });
+
+  it("drops releases whose tag carries no digits, such as neovim's rolling stable tag", () => {
+    const entries = extractReleases([
+      release("stable", "2026-08-23T00:00:00Z"),
+      release("v0.12.5", "2026-08-23T00:00:00Z"),
+    ]);
+
+    expect(entries).toEqual([{ version: "0.12.5", date: "2026-08-23" }]);
+  });
 });
 
 const routedFetch = (routes: [RegExp, unknown][]) =>
@@ -339,6 +347,228 @@ const routedFetch = (routes: [RegExp, unknown][]) =>
       json: async () => match[1],
     } as Response;
   });
+
+describe("fetchReleaseHistory with formal releases", () => {
+  it("returns stable releases from the releases endpoint, oldest first", async () => {
+    const fetchImpl = routedFetch([
+      [
+        /\/releases\?/,
+        [
+          { tag_name: "v2.0.0", published_at: "2024-01-01T00:00:00Z", draft: false, prerelease: false },
+          { tag_name: "v1.0.0", published_at: "2023-01-01T00:00:00Z", draft: false, prerelease: false },
+        ],
+      ],
+    ]);
+
+    const history = await fetchReleaseHistory("a/b", [], {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(history).toEqual([
+      { version: "1.0.0", date: "2023-01-01" },
+      { version: "2.0.0", date: "2024-01-01" },
+    ]);
+  });
+});
+
+describe("fetchReleaseHistory with bare tags", () => {
+  it("falls back to tag commit dates when the repo publishes no formal releases", async () => {
+    const fetchImpl = routedFetch([
+      [/\/releases\?/, []],
+      [
+        /\/tags\?/,
+        [
+          { name: "v1.9.4", commit: { sha: "d4" } },
+          { name: "v1.9.3", commit: { sha: "c3" } },
+        ],
+      ],
+      [/\/commits\/v1\.9\.4$/, { commit: { committer: { date: "2024-09-01T00:00:00Z" } } }],
+      [/\/commits\/v1\.9\.3$/, { commit: { author: { date: "2023-08-01T00:00:00Z" } } }],
+    ]);
+
+    const history = await fetchReleaseHistory("a/b", [], {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(history).toEqual([
+      { version: "1.9.3", date: "2023-08-01" },
+      { version: "1.9.4", date: "2024-09-01" },
+    ]);
+  });
+  it("returns no history at all when a tag date cannot be resolved", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const response = (body: unknown) =>
+      ({ ok: true, status: 200, statusText: "OK", json: async () => body }) as Response;
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (/\/releases\?/.test(url)) return response([]);
+      if (/\/tags\?/.test(url)) return response([{ name: "v1.0.0" }, { name: "v2.0.0" }]);
+      if (/\/commits\/v1\.0\.0$/.test(url)) {
+        return response({ commit: { committer: { date: "2023-01-01T00:00:00Z" } } });
+      }
+      return { ok: false, status: 403, statusText: "Forbidden", json: async () => ({}) } as Response;
+    });
+
+    const history = await fetchReleaseHistory("a/b", [], {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(history).toBeNull();
+  });
+});
+
+describe("fetchReleaseHistory incremental refresh", () => {
+  it("resolves dates only for tag versions not yet stored and merges them in", async () => {
+    const fetchImpl = routedFetch([
+      [/\/releases\?/, []],
+      [
+        /\/tags\?/,
+        [{ name: "v1.9.5" }, { name: "v1.9.4" }, { name: "v1.9.3" }],
+      ],
+      [/\/commits\/v1\.9\.5$/, { commit: { committer: { date: "2025-10-01T00:00:00Z" } } }],
+    ]);
+
+    const history = await fetchReleaseHistory(
+      "a/b",
+      [
+        { version: "1.9.3", date: "2023-08-01" },
+        { version: "1.9.4", date: "2024-09-01" },
+      ],
+      { fetchImpl: fetchImpl as unknown as typeof fetch }
+    );
+
+    expect(history).toEqual([
+      { version: "1.9.3", date: "2023-08-01" },
+      { version: "1.9.4", date: "2024-09-01" },
+      { version: "1.9.5", date: "2025-10-01" },
+    ]);
+  });
+  it("keeps the stored history when no tag is newer than what is stored", async () => {
+    const fetchImpl = routedFetch([
+      [/\/releases\?/, []],
+      [/\/tags\?/, [{ name: "v1.9.4" }, { name: "v1.9.3" }]],
+    ]);
+
+    const stored = [
+      { version: "1.9.3", date: "2023-08-01" },
+      { version: "1.9.4", date: "2024-09-01" },
+    ];
+    const history = await fetchReleaseHistory("a/b", stored, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(history).toEqual(stored);
+  });
+
+  it("ignores tags that are not versions without even fetching a date", async () => {
+    const fetchImpl = routedFetch([
+      [/\/releases\?/, []],
+      [/\/tags\?/, [{ name: "latest" }, { name: "v1.9.4" }]],
+      [/\/commits\/v1\.9\.4$/, { commit: { committer: { date: "2024-09-01T00:00:00Z" } } }],
+    ]);
+
+    const history = await fetchReleaseHistory("a/b", [], {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(history).toEqual([{ version: "1.9.4", date: "2024-09-01" }]);
+  });
+
+  it("keeps beta tags as releases of their own", async () => {
+    const fetchImpl = routedFetch([
+      [/\/releases\?/, []],
+      [/\/tags\?/, [{ name: "v1.9.4" }, { name: "v1.9.4b1" }]],
+      [/\/commits\/v1\.9\.4$/, { commit: { committer: { date: "2024-09-01T00:00:00Z" } } }],
+      [/\/commits\/v1\.9\.4b1$/, { commit: { committer: { date: "2024-08-01T00:00:00Z" } } }],
+    ]);
+
+    const history = await fetchReleaseHistory("a/b", [], {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(history).toEqual([
+      { version: "1.9.4b1", date: "2024-08-01" },
+      { version: "1.9.4", date: "2024-09-01" },
+    ]);
+  });
+  it("refuses a tag backfill with more version tags than one run should resolve", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const tags = Array.from({ length: 251 }, (_, i) => ({ name: `v9.1.${i}` }));
+    const fetchImpl = routedFetch([[/\/releases\?/, []], [/\/tags\?/, tags]]);
+
+    const history = await fetchReleaseHistory("a/b", [], {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(history).toBeNull();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("too many tags"));
+  });
+
+  it("refuses an incremental refresh whose unknown tags exceed the per-run cap", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const tags = Array.from({ length: 251 }, (_, i) => ({ name: `v9.1.${i}` }));
+    const fetchImpl = routedFetch([[/\/releases\?/, []], [/\/tags\?/, tags]]);
+
+    const history = await fetchReleaseHistory("a/b", [{ version: "1.0", date: "2020-01-01" }], {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(history).toBeNull();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("too many tags"));
+  });
+  it("keeps the stored date when GitHub disagrees about an already stored version", async () => {
+    const fetchImpl = routedFetch([
+      [
+        /\/releases\?/,
+        [{ tag_name: "v1.0.0", published_at: "2024-01-05T00:00:00Z", draft: false, prerelease: false }],
+      ],
+    ]);
+
+    const history = await fetchReleaseHistory(
+      "a/b",
+      [{ version: "1.0.0", date: "2024-01-01" }],
+      { fetchImpl: fetchImpl as unknown as typeof fetch }
+    );
+
+    expect(history).toEqual([{ version: "1.0.0", date: "2024-01-01" }]);
+  });
+
+  it("returns the stored list untouched when the refresh finds nothing new", async () => {
+    const fetchImpl = routedFetch([
+      [
+        /\/releases\?/,
+        [
+          { tag_name: "v2.0.0", published_at: "2024-06-01T00:00:00Z", draft: false, prerelease: false },
+          { tag_name: "v1.0.0", published_at: "2023-01-01T00:00:00Z", draft: false, prerelease: false },
+        ],
+      ],
+    ]);
+
+    const stored = [
+      { version: "2.0.0", date: "2024-06-01" },
+      { version: "1.0.0", date: "2023-01-01" },
+    ];
+    const history = await fetchReleaseHistory("a/b", stored, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(history).toEqual(stored);
+  });
+  it("stops enumerating tag pages once the cap is exceeded", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fullPage = Array.from({ length: 100 }, (_, i) => ({ name: `v9.1.${i}` }));
+    const fetchImpl = routedFetch([[/\/releases\?/, []], [/\/tags\?/, fullPage]]);
+
+    const history = await fetchReleaseHistory("a/b", [], {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(history).toBeNull();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("skip_releases"));
+    const tagPages = fetchImpl.mock.calls.filter(([url]) => /\/tags\?/.test(String(url))).length;
+    expect(tagPages).toBeLessThanOrEqual(3);
+  });
+});
 
 const filledProgram = `name: Filled Program
 slug: filled-program
@@ -413,12 +643,76 @@ describe("GitHub releases in runAutoFill", () => {
     ]);
   });
 
-  it("leaves an existing curated list untouched without --force", async () => {
+  it("merges GitHub releases into a curated list without dropping curated entries", async () => {
+    const dir = fixtureDir({
+      "filled-program.yaml": `${filledProgram}releases:
+  - version: "0.9.0"
+    date: "2022-06-06"
+`,
+    });
+    const fetchImpl = routedFetch([[/^https:\/\/api\.github\.com\//, ghReleases]]);
+
+    const changed = await runAutoFill({
+      dir,
+      delayMs: 0,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(changed).toBe(1);
+    expect(loadPrograms(dir)[0].releases).toEqual([
+      { version: "0.9.0", date: "2022-06-06" },
+      { version: "1.0.0", date: "2023-01-01" },
+      { version: "2.0.0", date: "2024-01-01" },
+    ]);
+  });
+
+  it("leaves the file untouched when the list is already current", async () => {
     const dir = fixtureDir({
       "filled-program.yaml": `${filledProgram}releases:
   - version: "1.0.0"
     date: "2023-01-01"
+  - version: "2.0.0"
+    date: "2024-01-01"
 `,
+    });
+    const fetchImpl = routedFetch([[/^https:\/\/api\.github\.com\//, ghReleases]]);
+    const before = readFileSync(join(dir, "filled-program.yaml"), "utf8");
+
+    const changed = await runAutoFill({
+      dir,
+      delayMs: 0,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(changed).toBe(0);
+    expect(readFileSync(join(dir, "filled-program.yaml"), "utf8")).toBe(before);
+  });
+
+  it("leaves a program with a malformed releases list completely untouched", async () => {
+    const dir = fixtureDir({
+      "filled-program.yaml": `${filledProgram}releases:
+  - version: "1.0.0"
+`,
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchImpl = routedFetch([[/^https:\/\/api\.github\.com\//, ghReleases]]);
+    const before = readFileSync(join(dir, "filled-program.yaml"), "utf8");
+
+    const changed = await runAutoFill({
+      dir,
+      delayMs: 0,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(changed).toBe(0);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("malformed"));
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(readFileSync(join(dir, "filled-program.yaml"), "utf8")).toBe(before);
+  });
+
+  it("does not query GitHub for a program that opts out with skip_releases", async () => {
+    const dir = fixtureDir({
+      "filled-program.yaml": `${filledProgram}skip_releases: true\n`,
     });
     const fetchImpl = routedFetch([[/^https:\/\/api\.github\.com\//, ghReleases]]);
 
@@ -430,8 +724,47 @@ describe("GitHub releases in runAutoFill", () => {
 
     expect(changed).toBe(0);
     expect(fetchImpl).not.toHaveBeenCalled();
+    expect(loadPrograms(dir)[0].releases).toEqual([]);
+  });
+
+  it("reports the opt-out when forced", async () => {
+    const dir = fixtureDir({
+      "filled-program.yaml": `${filledProgram}skip_releases: true\n`,
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchImpl = routedFetch([[/^https:\/\/api\.github\.com\//, ghReleases]]);
+
+    const changed = await runAutoFill({
+      dir,
+      delayMs: 0,
+      force: true,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(changed).toBe(0);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("skip_releases"));
+  });
+
+  it("backfills a tag-only repo by resolving tag dates", async () => {
+    const dir = fixtureDir({ "filled-program.yaml": filledProgram });
+    const fetchImpl = routedFetch([
+      [/\/releases\?/, []],
+      [/\/tags\?/, [{ name: "v2.2.0" }, { name: "v2.1.0" }]],
+      [/\/commits\/v2\.2\.0$/, { commit: { committer: { date: "2025-02-02T00:00:00Z" } } }],
+      [/\/commits\/v2\.1\.0$/, { commit: { committer: { date: "2025-01-01T00:00:00Z" } } }],
+    ]);
+
+    const changed = await runAutoFill({
+      dir,
+      delayMs: 0,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(changed).toBe(1);
     expect(loadPrograms(dir)[0].releases).toEqual([
-      { version: "1.0.0", date: "2023-01-01" },
+      { version: "2.1.0", date: "2025-01-01" },
+      { version: "2.2.0", date: "2025-02-02" },
     ]);
   });
 
@@ -519,10 +852,14 @@ describe("--stars in runAutoFill", () => {
     /^https:\/\/api\.github\.com\/repos\/example\/filled-program$/,
     { stargazers_count: 46123 },
   ];
+  const releaseRoute: [RegExp, unknown] = [
+    /\/releases\?/,
+    [{ tag_name: "v1.0.0", published_at: "2023-01-01T00:00:00Z", draft: false, prerelease: false }],
+  ];
 
   it("fills the star count when absent", async () => {
     const dir = fixtureDir({ "filled-program.yaml": filledProgram });
-    const fetchImpl = routedFetch([starsRoute]);
+    const fetchImpl = routedFetch([starsRoute, releaseRoute]);
 
     const changed = await runAutoFill({
       dir,
@@ -539,7 +876,7 @@ describe("--stars in runAutoFill", () => {
     const dir = fixtureDir({
       "filled-program.yaml": `${filledProgram}stars: 999\n`,
     });
-    const fetchImpl = routedFetch([starsRoute]);
+    const fetchImpl = routedFetch([starsRoute, releaseRoute]);
 
     const changed = await runAutoFill({
       dir,
@@ -556,8 +893,7 @@ describe("--stars in runAutoFill", () => {
     const dir = fixtureDir({
       "filled-program.yaml": `${filledProgram}stars: 999\n`,
     });
-    vi.spyOn(console, "warn").mockImplementation(() => {});
-    const fetchImpl = routedFetch([starsRoute]);
+    const fetchImpl = routedFetch([starsRoute, releaseRoute]);
 
     await runAutoFill({
       dir,
@@ -611,40 +947,6 @@ describe("--stars in runAutoFill", () => {
 
     expect(changed).toBe(1);
     expect(loadPrograms(dir)[0].stars).toBeUndefined();
-  });
-});
-
-describe("applyReleases", () => {
-  const entries = [
-    { version: "1.0.0", date: "2023-01-01" },
-    { version: "2.0.0", date: "2024-01-01" },
-  ];
-
-  it("returns the entries when the program has no releases list", () => {
-    expect(applyReleases({}, entries)).toEqual(entries);
-    expect(applyReleases({ releases: [] }, entries)).toEqual(entries);
-  });
-
-  it("refuses to overwrite an existing curated list without force", () => {
-    const data = { releases: [{ version: "0.9.0", date: "2022-06-06" }] };
-    expect(applyReleases(data, entries)).toBeNull();
-    expect(applyReleases(data, entries, true)).toEqual(entries);
-  });
-
-  it("returns null when there is nothing to fill", () => {
-    expect(applyReleases({}, [])).toBeNull();
-  });
-});
-
-describe("needsReleases", () => {
-  it("is true only for GitHub-backed programs without a releases list", () => {
-    expect(needsReleases({ repository: "https://github.com/a/b" })).toBe(true);
-    expect(needsReleases({ repository: "https://github.com/a/b", releases: [] })).toBe(true);
-    expect(
-      needsReleases({ repository: "https://github.com/a/b", releases: [{ version: "1", date: "2024-01-01" }] })
-    ).toBe(false);
-    expect(needsReleases({})).toBe(false);
-    expect(needsReleases({ repository: "https://gitlab.com/a/b" })).toBe(false);
   });
 });
 

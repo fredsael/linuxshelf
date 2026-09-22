@@ -84,3 +84,16 @@ when a repository moves off GitHub is cleared
 Repology does not expose release dates, so `latest_release` is only filled
 when the API response happens to include one; it usually needs a manual
 edit or a future upstream source.
+
+Each run also refreshes the `releases:` timeline of GitHub-backed programs:
+new stable releases are merged into the existing list, so hand-curated
+entries are never overwritten. Repositories that publish no formal GitHub
+releases (ranger, for example) fall back to bare git tags, dated by their
+tagged commits; a full backfill costs one request per tag, so run with
+`GITHUB_TOKEN` set. Later refreshes fetch only the newest page and resolve
+dates just for versions not yet stored (see
+`docs/adr/0003-git-tags-fallback.md`). Programs whose tag history is too
+large to date — repositories tagging every patch commit, like vim — set
+`skip_releases: true` in their YAML to opt out of the lookup entirely and
+keep the first/latest date markers; `--force` rebuilds a program's list
+from scratch and replaces curated entries deliberately.

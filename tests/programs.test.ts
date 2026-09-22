@@ -85,6 +85,15 @@ describe("loadPrograms", () => {
     expect(program?.description.full).toContain("test fixture");
   });
 
+  it("keeps skip_releases when a program opts out", () => {
+    const dir = fixtureDir({
+      "test-program.yaml": `${validProgram}\nskip_releases: true\n`,
+      "other.yaml": otherProgram,
+    });
+
+    expect(loadPrograms(dir).find((p) => p.slug === "test-program")?.skip_releases).toBe(true);
+  });
+
   it("applies defaults for optional and auto-fillable fields", () => {
     const dir = fixtureDir({
       "other.yaml": otherProgram,
@@ -106,6 +115,7 @@ related:
       tags: [],
       license: "",
       version: "",
+      skip_releases: false,
       packages: {},
     });
   });
