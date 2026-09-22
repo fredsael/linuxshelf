@@ -196,12 +196,12 @@ export interface FetchOptions {
 
 const USER_AGENT = "linuxshelf/1.0 (auto-fill script)";
 
-/** Fetch a JSON array, throwing on HTTP errors, timeouts or unexpected bodies. */
-async function fetchJsonArray(
+/** Fetch a JSON body, throwing on HTTP errors or timeouts. */
+async function fetchJson(
   url: string,
   headers: Record<string, string>,
   { fetchImpl = fetch, timeoutMs = 15000 }: FetchOptions = {}
-): Promise<unknown[]> {
+): Promise<unknown> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -209,12 +209,21 @@ async function fetchJsonArray(
     if (!response.ok) {
       throw new Error(`HTTP ${response.status} ${response.statusText}`);
     }
-    const json = (await response.json()) as unknown;
-    if (!Array.isArray(json)) throw new Error("unexpected response body");
-    return json;
+    return await response.json();
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Fetch a JSON array, throwing on unexpected bodies. */
+async function fetchJsonArray(
+  url: string,
+  headers: Record<string, string>,
+  options: FetchOptions = {}
+): Promise<unknown[]> {
+  const json = await fetchJson(url, headers, options);
+  if (!Array.isArray(json)) throw new Error("unexpected response body");
+  return json;
 }
 
 export async function fetchRepology(
@@ -281,17 +290,43 @@ export function extractReleases(releases: GitHubRelease[]): Release[] {
 const GITHUB_PER_PAGE = 100;
 const GITHUB_MAX_PAGES = 10;
 
-export async function fetchGitHubReleases(
-  repo: string,
-  options: FetchOptions = {}
-): Promise<GitHubRelease[] | null> {
-  const headers = {
+function githubHeaders(): Record<string, string> {
+  return {
     Accept: "application/vnd.github+json",
     "User-Agent": USER_AGENT,
     ...(process.env.GITHUB_TOKEN
       ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
       : {}),
   };
+}
+
+export async function fetchGitHubStars(
+  repo: string,
+  options: FetchOptions = {}
+): Promise<number | null> {
+  try {
+    const json = (await fetchJson(
+      `https://api.github.com/repos/${repo}`,
+      githubHeaders(),
+      options
+    )) as { stargazers_count?: unknown };
+    const count = json?.stargazers_count;
+    if (typeof count !== "number" || !Number.isInteger(count) || count < 0) {
+      throw new Error("no star count in response");
+    }
+    return count;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`  ! GitHub star lookup failed for "${repo}": ${message}`);
+    return null;
+  }
+}
+
+export async function fetchGitHubReleases(
+  repo: string,
+  options: FetchOptions = {}
+): Promise<GitHubRelease[] | null> {
+  const headers = githubHeaders();
   try {
     const all: GitHubRelease[] = [];
     for (let page = 1; page <= GITHUB_MAX_PAGES; page += 1) {
@@ -362,6 +397,7 @@ interface RunOptions {
   only?: string;
   dryRun?: boolean;
   force?: boolean;
+  stars?: boolean;
   fetchImpl?: typeof fetch;
   delayMs?: number;
 }
@@ -371,6 +407,7 @@ export async function runAutoFill({
   only,
   dryRun = false,
   force = false,
+  stars = false,
   fetchImpl,
   delayMs = 1000,
 }: RunOptions = {}): Promise<number> {
@@ -394,8 +431,10 @@ export async function runAutoFill({
 
     const repo = parseGitHubRepo(data.repository);
     const wantsReleases = repo !== undefined && (force || needsReleases(data));
+    const wantsStars = stars && repo !== undefined;
+    const wantsStarsClear = stars && repo === undefined && data.stars !== undefined;
 
-    if (!needsFill(data) && !wantsReleases) {
+    if (!needsFill(data) && !wantsReleases && !wantsStars && !wantsStarsClear) {
       console.log(`  = ${file}: nothing to fill`);
       continue;
     }
@@ -450,6 +489,25 @@ export async function runAutoFill({
       console.warn(`  ! ${file}: no GitHub repository, cannot fill releases`);
     }
 
+    if (wantsStars) {
+      if (lookupCount > 0) await sleep(delayMs);
+      lookupCount += 1;
+      console.log(`  → ${file}: fetching GitHub stars for "${repo}"`);
+      const count = await fetchGitHubStars(repo!, { fetchImpl });
+      if (count === null) {
+        console.warn(`  ! ${file}: no usable GitHub star data`);
+      } else if (count !== data.stars) {
+        if (!dryRun) setQuotedField(doc, ["stars"], count);
+        fields.push("stars");
+      }
+    }
+
+    if (wantsStarsClear) {
+      console.log(`  → ${file}: repository is not on GitHub, clearing stale stars`);
+      if (!dryRun) doc.deleteIn(["stars"]);
+      fields.push("stars");
+    }
+
     if (fields.length === 0) continue;
 
     if (dryRun) {
@@ -482,6 +540,7 @@ if (isDirectRun()) {
   const dryRun = args.includes("--dry-run");
   const force = args.includes("--force");
   const all = args.includes("--all");
+  const stars = args.includes("--stars");
   const projectIndex = args.indexOf("--project");
   const only = projectIndex >= 0 ? args[projectIndex + 1] : undefined;
 
@@ -492,5 +551,5 @@ if (isDirectRun()) {
     process.exit(1);
   }
 
-  await runAutoFill({ dryRun, force, only });
+  await runAutoFill({ dryRun, force, stars, only });
 }

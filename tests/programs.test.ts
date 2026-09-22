@@ -171,6 +171,49 @@ homepage: https://example.com/typo
   });
 });
 
+describe("star counts", () => {
+  it("reads the optional stars field", () => {
+    const dir = fixtureDir({
+      "test-program.yaml": `${validProgram}stars: 46123\n`,
+      "other.yaml": otherProgram,
+    });
+
+    const program = loadPrograms(dir).find((p) => p.slug === "test-program");
+    expect(program?.stars).toBe(46123);
+  });
+
+  it("rejects a star count that does not attach to a catalogued repository", () => {
+    const dir = fixtureDir({
+      "starless.yaml": `name: Starless
+slug: starless
+category: Utilities
+description:
+  short: Short.
+  full: Full.
+homepage: https://example.com/starless
+stars: 12
+`,
+    });
+
+    expect(() => loadPrograms(dir)).toThrow(/starless\.yaml/);
+    expect(() => loadPrograms(dir)).toThrow(/stars/);
+  });
+
+  it("rejects negative or fractional star counts", () => {
+    const negative = fixtureDir({
+      "test-program.yaml": `${validProgram}stars: -5\n`,
+      "other.yaml": otherProgram,
+    });
+    expect(() => loadPrograms(negative)).toThrow(/stars/);
+
+    const fractional = fixtureDir({
+      "test-program.yaml": `${validProgram}stars: 1.5\n`,
+      "other.yaml": otherProgram,
+    });
+    expect(() => loadPrograms(fractional)).toThrow(/stars/);
+  });
+});
+
 describe("releases", () => {
   const withReleases = `name: Released
 slug: released

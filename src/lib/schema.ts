@@ -30,12 +30,26 @@ export const programSchema = z
     releases: z.array(releaseSchema).default([]),
     homepage: z.string().url("homepage must be a valid URL"),
     repository: z.string().url("repository must be a valid URL").optional(),
+    stars: z
+      .number()
+      .int("stars must be an integer")
+      .min(0, "stars must be a non-negative number")
+      .optional(),
     icon: z.string().optional(),
     repology: z.string().optional(),
     packages: z.record(z.string()).default({}),
     related: z.array(z.string().regex(slugPattern)).default([]),
   })
-  .strict();
+  .strict()
+  .superRefine((program, ctx) => {
+    if (program.stars !== undefined && !program.repository) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["stars"],
+        message: "stars must attach to a catalogued repository",
+      });
+    }
+  });
 
 export type Program = z.infer<typeof programSchema>;
 export type ProgramInput = z.input<typeof programSchema>;
