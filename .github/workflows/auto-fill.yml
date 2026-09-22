@@ -24,15 +24,19 @@ jobs:
 
       - name: Pull missing metadata from Repology
         run: npm run auto-fill
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Open pull request with updated metadata
         uses: peter-evans/create-pull-request@v6
         with:
-          commit-message: "chore: auto-fill program metadata from Repology"
-          title: "chore: auto-fill program metadata from Repology"
+          commit-message: "chore: auto-fill program metadata from Repology and GitHub"
+          title: "chore: auto-fill program metadata from Repology and GitHub"
           body: |
             Weekly automated update of blank program metadata (`version`,
-            `license`, `latest_release`, `packages`) from the Repology API.
+            `license`, `latest_release`, `packages`) from the Repology API,
+            plus incremental refresh of `releases` timelines from each
+            program's GitHub repository.
 
             Hand-written fields are never overwritten.
           branch: chore/auto-fill-metadata

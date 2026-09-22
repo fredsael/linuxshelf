@@ -324,6 +324,15 @@ describe("extractReleases", () => {
       { version: "vim-9.0", date: "2024-06-01" },
     ]);
   });
+
+  it("drops releases whose tag carries no digits, such as neovim's rolling stable tag", () => {
+    const entries = extractReleases([
+      release("stable", "2026-08-23T00:00:00Z"),
+      release("v0.12.5", "2026-08-23T00:00:00Z"),
+    ]);
+
+    expect(entries).toEqual([{ version: "0.12.5", date: "2026-08-23" }]);
+  });
 });
 
 const routedFetch = (routes: [RegExp, unknown][]) =>
@@ -507,6 +516,44 @@ describe("fetchReleaseHistory incremental refresh", () => {
     expect(history).toBeNull();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("too many tags"));
   });
+  it("keeps the stored date when GitHub disagrees about an already stored version", async () => {
+    const fetchImpl = routedFetch([
+      [
+        /\/releases\?/,
+        [{ tag_name: "v1.0.0", published_at: "2024-01-05T00:00:00Z", draft: false, prerelease: false }],
+      ],
+    ]);
+
+    const history = await fetchReleaseHistory(
+      "a/b",
+      [{ version: "1.0.0", date: "2024-01-01" }],
+      { fetchImpl: fetchImpl as unknown as typeof fetch }
+    );
+
+    expect(history).toEqual([{ version: "1.0.0", date: "2024-01-01" }]);
+  });
+
+  it("returns the stored list untouched when the refresh finds nothing new", async () => {
+    const fetchImpl = routedFetch([
+      [
+        /\/releases\?/,
+        [
+          { tag_name: "v2.0.0", published_at: "2024-06-01T00:00:00Z", draft: false, prerelease: false },
+          { tag_name: "v1.0.0", published_at: "2023-01-01T00:00:00Z", draft: false, prerelease: false },
+        ],
+      ],
+    ]);
+
+    const stored = [
+      { version: "2.0.0", date: "2024-06-01" },
+      { version: "1.0.0", date: "2023-01-01" },
+    ];
+    const history = await fetchReleaseHistory("a/b", stored, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(history).toEqual(stored);
+  });
 });
 
 const filledProgram = `name: Filled Program
@@ -624,6 +671,28 @@ describe("GitHub releases in runAutoFill", () => {
     });
 
     expect(changed).toBe(0);
+    expect(readFileSync(join(dir, "filled-program.yaml"), "utf8")).toBe(before);
+  });
+
+  it("leaves a program with a malformed releases list completely untouched", async () => {
+    const dir = fixtureDir({
+      "filled-program.yaml": `${filledProgram}releases:
+  - version: "1.0.0"
+`,
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchImpl = routedFetch([[/^https:\/\/api\.github\.com\//, ghReleases]]);
+    const before = readFileSync(join(dir, "filled-program.yaml"), "utf8");
+
+    const changed = await runAutoFill({
+      dir,
+      delayMs: 0,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(changed).toBe(0);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("malformed"));
+    expect(fetchImpl).not.toHaveBeenCalled();
     expect(readFileSync(join(dir, "filled-program.yaml"), "utf8")).toBe(before);
   });
 

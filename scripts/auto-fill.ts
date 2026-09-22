@@ -280,7 +280,7 @@ export function extractReleases(releases: GitHubRelease[]): Release[] {
     if (release.draft || release.prerelease) continue;
     const version = normalizeReleaseVersion(release.tag_name ?? "");
     const date = (release.published_at ?? release.created_at ?? "").slice(0, 10);
-    if (!version || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    if (!version || !/\d/.test(version) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
     const existing = byVersion.get(version);
     if (!existing || date < existing.date) byVersion.set(version, { version, date });
   }
@@ -322,21 +322,33 @@ export async function fetchGitHubStars(
   }
 }
 
+/** Fetch a paginated GitHub array endpoint, newest items first, up to maxPages. Throws on failure. */
+async function fetchGitHubPages<T>(
+  url: (page: number) => string,
+  maxPages: number,
+  options: FetchOptions = {}
+): Promise<T[]> {
+  const headers = githubHeaders();
+  const all: T[] = [];
+  for (let page = 1; page <= maxPages; page += 1) {
+    const json = await fetchJsonArray(url(page), headers, options);
+    all.push(...(json as T[]));
+    if (json.length < GITHUB_PER_PAGE) break;
+  }
+  return all;
+}
+
 async function fetchGitHubReleases(
   repo: string,
   options: FetchOptions = {},
   maxPages = GITHUB_MAX_PAGES
 ): Promise<GitHubRelease[] | null> {
-  const headers = githubHeaders();
   try {
-    const all: GitHubRelease[] = [];
-    for (let page = 1; page <= maxPages; page += 1) {
-      const url = `https://api.github.com/repos/${repo}/releases?per_page=${GITHUB_PER_PAGE}&page=${page}`;
-      const json = await fetchJsonArray(url, headers, options);
-      all.push(...(json as GitHubRelease[]));
-      if (json.length < GITHUB_PER_PAGE) break;
-    }
-    return all;
+    return await fetchGitHubPages<GitHubRelease>(
+      (page) => `https://api.github.com/repos/${repo}/releases?per_page=${GITHUB_PER_PAGE}&page=${page}`,
+      maxPages,
+      options
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.warn(`  ! GitHub release lookup failed for "${repo}": ${message}`);
@@ -355,51 +367,53 @@ interface GitHubCommit {
   };
 }
 
-async function fetchGitHubTags(
+async function fetchGitHubTagNames(
   repo: string,
-  headers: Record<string, string>,
   options: FetchOptions = {},
   maxPages = GITHUB_MAX_PAGES
 ): Promise<string[]> {
-  const names: string[] = [];
-  for (let page = 1; page <= maxPages; page += 1) {
-    const url = `https://api.github.com/repos/${repo}/tags?per_page=${GITHUB_PER_PAGE}&page=${page}`;
-    const json = await fetchJsonArray(url, headers, options);
-    names.push(...(json as GitHubTag[]).map((tag) => tag.name));
-    if (json.length < GITHUB_PER_PAGE) break;
-  }
-  return names;
+  const tags = await fetchGitHubPages<GitHubTag>(
+    (page) => `https://api.github.com/repos/${repo}/tags?per_page=${GITHUB_PER_PAGE}&page=${page}`,
+    maxPages,
+    options
+  );
+  return tags.map((tag) => tag.name);
 }
 
 /** Tags carry no date of their own, so resolve the tagged commit. Throws on failure. */
-async function fetchTagDate(
-  repo: string,
-  tag: string,
-  headers: Record<string, string>,
-  options: FetchOptions = {}
-): Promise<string> {
+async function fetchTagDate(repo: string, tag: string, options: FetchOptions = {}): Promise<string> {
   const url = `https://api.github.com/repos/${repo}/commits/${encodeURIComponent(tag)}`;
-  const json = (await fetchJson(url, headers, options)) as GitHubCommit;
+  const json = (await fetchJson(url, githubHeaders(), options)) as GitHubCommit;
   const date = json?.commit?.committer?.date ?? json?.commit?.author?.date;
   if (!date) throw new Error(`no date for tag "${tag}"`);
   return date;
 }
 
-const asRecord = (release: Release): GitHubRelease => ({
+/** Reshape a stored Release as an API record so extractReleases can dedupe and sort it. */
+const asGitHubRelease = (release: Release): GitHubRelease => ({
   tag_name: release.version,
   published_at: `${release.date}T00:00:00Z`,
 });
 
-/** extractReleases deduplicates by version and sorts by date, so merging is idempotent. */
+/**
+ * Append genuinely new versions to the stored list. Stored entries always win:
+ * a fetched version already stored is dropped, and a refresh that finds nothing
+ * new returns `stored` untouched, in its original order.
+ */
 function mergeHistories(stored: Release[], fetched: Release[]): Release[] {
-  return extractReleases([...stored.map(asRecord), ...fetched.map(asRecord)]);
+  const storedVersions = new Set(stored.map((release) => normalizeReleaseVersion(release.version)));
+  const fresh = fetched.filter((release) => !storedVersions.has(normalizeReleaseVersion(release.version)));
+  if (fresh.length === 0) return stored;
+  return extractReleases([...stored.map(asGitHubRelease), ...fresh.map(asGitHubRelease)]);
 }
 
 const KNOWN_STOP_MARGIN = 3;
 
-// Repositories that tag every patch commit (vim: 6000+ tags) would blow the
-// rate limit and render a useless timeline; they get curated `releases` lists
-// instead.
+/**
+ * Repositories that tag every patch commit (vim: 6000+ tags) would blow the
+ * rate limit and render a useless timeline; they get curated `releases` lists
+ * instead.
+ */
 const MAX_TAG_DATES = 250;
 
 /** Tags like "latest" or "nightly-build" are not versions and get no timeline point. */
@@ -449,9 +463,8 @@ export async function fetchReleaseHistory(
     return incremental ? mergeHistories(stored, fetched) : fetched;
   }
 
-  const headers = githubHeaders();
   try {
-    const tagNames = (await fetchGitHubTags(repo, headers, options, maxPages)).filter(isVersionLike);
+    const tagNames = (await fetchGitHubTagNames(repo, options, maxPages)).filter(isVersionLike);
     const pending = incremental ? unknownTags(stored, tagNames) : tagNames;
     if (pending.length > MAX_TAG_DATES) {
       console.warn(
@@ -461,7 +474,7 @@ export async function fetchReleaseHistory(
     }
     const records: GitHubRelease[] = [];
     for (const name of pending) {
-      records.push({ tag_name: name, published_at: await fetchTagDate(repo, name, headers, options) });
+      records.push({ tag_name: name, published_at: await fetchTagDate(repo, name, options) });
     }
     const tagEntries = extractReleases(records);
     if (!incremental) return tagEntries.length > 0 ? tagEntries : null;
@@ -473,10 +486,14 @@ export async function fetchReleaseHistory(
   }
 }
 
-/** Well-formed releases already stored in the program YAML. */
-function storedReleases(data: Record<string, unknown>): Release[] {
+/**
+ * Well-formed releases already stored in the program YAML, or null when the
+ * list exists but holds entries this script cannot represent — such files are
+ * left entirely alone rather than silently rewritten without those entries.
+ */
+function storedReleases(data: Record<string, unknown>): Release[] | null {
   if (!Array.isArray(data.releases)) return [];
-  return data.releases.flatMap((entry) => {
+  const valid = data.releases.flatMap((entry) => {
     const release = entry as Partial<Release> | null;
     if (
       typeof release?.version === "string" &&
@@ -487,6 +504,7 @@ function storedReleases(data: Record<string, unknown>): Release[] {
     }
     return [];
   });
+  return valid.length === data.releases.length ? valid : null;
 }
 
 function sameReleases(a: Release[], b: Release[]): boolean {
@@ -613,12 +631,16 @@ export async function runAutoFill({
       lookupCount += 1;
       console.log(`  → ${file}: querying GitHub for "${repo}"`);
       const stored = storedReleases(data);
-      const next = await fetchReleaseHistory(repo!, stored, { force, fetchImpl });
-      if (next === null) {
-        console.warn(`  ! ${file}: no usable GitHub release data`);
-      } else if (!sameReleases(stored, next)) {
-        if (!dryRun) setQuotedReleases(doc, next);
-        fields.push("releases");
+      if (stored === null) {
+        console.warn(`  ! ${file}: releases list is malformed, leaving it untouched`);
+      } else {
+        const next = await fetchReleaseHistory(repo!, stored, { force, fetchImpl });
+        if (next === null) {
+          console.warn(`  ! ${file}: no usable GitHub release data`);
+        } else if (!sameReleases(stored, next)) {
+          if (!dryRun) setQuotedReleases(doc, next);
+          fields.push("releases");
+        }
       }
     } else if (force && repo === undefined) {
       console.warn(`  ! ${file}: no GitHub repository, cannot fill releases`);
