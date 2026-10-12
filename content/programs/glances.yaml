@@ -181,4 +181,8 @@ releases:
     date: "2026-06-13"
   - version: "4.5.6"
     date: "2026-08-01"
+  - version: "4.5.7"
+    date: "2026-09-26"
+  - version: "4.5.8"
+    date: "2026-10-11"
 stars: 33645
